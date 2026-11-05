@@ -26,10 +26,11 @@ const P = {
   body: '<circle cx="12" cy="4.5" r="2"/><path d="M8 9h8l-1.2 6H13l-1 6-1-6H9.2z"/>', list: '<path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>',
   shield: '<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/>', lock: '<rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/>',
   play: '<path d="M8 5v14l11-7z"/>',
+  alerta: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5.5M12 16.5h.01"/>',
 };
 const ic = (n, s = 20, w = 2) => `<svg class="i" viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${P[n]}</svg>`;
 
-function tostada(txt, ms = 4200) { S.toast = txt; pintar(); clearTimeout(S._t); S._t = setTimeout(() => { S.toast = null; pintar(); }, ms); }
+function tostada(txt, ms = 4200, error = false) { S.toast = txt; S.toastError = error; pintar(); clearTimeout(S._t); S._t = setTimeout(() => { S.toast = null; pintar(); }, ms); }
 const paseKey = () => 'tkapp-pase-' + (S.eq ? S.eq.serie : '');
 
 // ---- conexión, clave y hora ---------------------------------------------------------------------------------------------------
@@ -381,6 +382,7 @@ function horaTarj() {
 }
 // iPhone sin Bluefy (Safari, Chrome de iPhone…): ahí no hay Bluetooth para páginas web. Se explica cómo abrirla en Bluefy.
 const APP_STORE_BLUEFY = 'https://apps.apple.com/app/id1492822055';
+const DIR_APP = location.origin + location.pathname;          // la dirección de esta app (la misma del QR y del NFC)
 const esIphone = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function guiaIphone() {
   return `<div style="padding:4px 0 10px;text-align:center">
@@ -390,18 +392,18 @@ function guiaIphone() {
     <div class="tarj"><span class="eti2">Paso 1</span><div style="margin:4px 0 10px;font-weight:600">Instale Bluefy (una sola vez)</div>
       <a class="btn pri" style="text-decoration:none" href="${APP_STORE_BLUEFY}" target="_blank" rel="noopener">Abrir Bluefy en la App Store</a></div>
     <div class="tarj"><span class="eti2">Paso 2</span><div style="margin:4px 0 6px;font-weight:600">Abra Bluefy y pegue esta dirección</div>
-      <div class="sub" style="word-break:break-all;margin-bottom:10px">${esc(location.origin + location.pathname)}</div>
+      <div class="sub" style="word-break:break-all;margin-bottom:10px">${esc(DIR_APP)}</div>
       <button class="btn ver" data-act="copiar">Copiar la dirección</button>
       <div class="sub" style="margin-top:8px">En Bluefy, guárdela en favoritos para la próxima vez.</div></div>
     <div style="padding:0 14px 16px"><button class="btn sec" data-act="prueba">${ic('play', 16)}Ver la app sin equipo</button></div>`;
 }
 function pantallaConectar() {
   const ble = EquipoBle.disponible();
-  if (!ble && !S.buscando && esIphone()) return guiaIphone();
+  if (!ble && esIphone()) return guiaIphone();
   return `<div style="padding:4px 0 10px;text-align:center">
     <div class="ble">${S.buscando ? '<i></i><i></i><i></i>' : ''}<b>${ic('bt', 30, 2.2)}</b></div>
     <h3 style="margin:8px 0 4px;font-size:18px">${S.buscando ? 'Conectando…' : 'Conecte el equipo'}</h3>
-    <p class="sub" style="margin:0 28px 14px">${S.buscando ? 'Elija su equipo SKIN en la lista del celular.' : ble ? 'Prenda el SKIN TRANSDERM PLUS+ y active el Bluetooth del celular.' : 'Este navegador no tiene Bluetooth. En Android use Chrome; en iPhone, la app Bluefy.'}</p>
+    <p class="sub" style="margin:0 28px 14px">${S.buscando ? 'Elija su equipo SKIN en la lista del celular.' : ble ? 'Prenda el SKIN TRANSDERM PLUS+ y active el Bluetooth del celular.' : 'Este navegador no tiene Bluetooth. En Android use Chrome.'}</p>
     ${S.buscando ? '' : `<div style="padding:0 18px">${ble ? `<button class="btn ver" data-act="buscar">${ic('bt', 18)}Buscar equipo</button><div style="height:10px"></div>` : ''}<button class="btn sec" data-act="prueba">${ic('play', 16)}Probar sin equipo</button></div>`}
     </div>
     <div class="sub" style="text-align:center;margin:10px 24px 0">El equipo atiende un solo celular a la vez. Si en la lista sale «ocupado», otro celular lo tiene conectado.</div>`;
@@ -512,7 +514,7 @@ function cuerpo() {
   }
 }
 function marco() {      // arriba la barra de A (marca y conexión); debajo el paso a paso de C
-  const tst = S.toast ? `<div class="tostada">${ic('check', 18, 2.6)}<div>${S.toast}</div></div>` : '';
+  const tst = S.toast ? `<div class="tostada">${ic(S.toastError ? 'alerta' : 'check', 18, 2.6)}<div>${S.toast}</div></div>` : '';
   const barra = `<div class="barra"><div class="marca-app"><div class="lg">${LOGO_TK}</div><div><b>TK_APP</b><small>INGENIERÍA PARA LA ESTÉTICA${S.prueba ? ' · EQUIPO DE PRUEBA' : ''}</small></div></div>
       <div class="conx ${S.con ? 'si' : ''}" ${S.con ? '' : 'data-go="conectar"'}><span class="pt"></span>${S.con ? `${esc(S.eq.serie)} conectado` : 'Sin equipo conectado'}<span class="der">${S.con ? (S.hora ? 'Hora ' + S.hora.h : 'Bluetooth') : 'Toque para conectar'}</span></div></div>`;
   const volver = !['inicio', 'conectar'].includes(S.p) ? `<button class="volver" data-act="atras">${ic('back', 16)}${['pdf', 'logo', 'ficha'].includes(S.p) ? 'Volver' : S.p === 'clave' ? 'Cancelar' : 'Inicio'}</button>` : '';
@@ -555,9 +557,8 @@ function accion(a) {
     pintar();
   }
   else if (a === 'copiar') {
-    const dir = location.origin + location.pathname;
-    (navigator.clipboard ? navigator.clipboard.writeText(dir) : Promise.reject()).then(() => tostada('Dirección copiada. Ábrala en Bluefy y péguela arriba.'))
-      .catch(() => tostada('Copie a mano esta dirección: ' + esc(dir), 8000));
+    (navigator.clipboard ? navigator.clipboard.writeText(DIR_APP) : Promise.reject()).then(() => tostada('Dirección copiada. Ábrala en Bluefy y péguela arriba.'))
+      .catch(() => tostada('Copie a mano esta dirección: ' + esc(DIR_APP), 8000, true));
   }
   else if (a === 'documentos') { window.open(URL_DOCUMENTOS, '_blank', 'noopener'); }
   else if (a === 'paso') { S.firmaPaso++; pintar(); }
