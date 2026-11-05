@@ -1,0 +1,815 @@
+// Generado por DWIN/pantallas/catalogo_app.py desde pantallas_demo.h: no editar a mano.
+const CATALOGO = {
+ "salud": {
+  "facial": [
+   "Marcapasos o arritmia",
+   "Metal en la zona",
+   "Epilepsia o convulsiones",
+   "Sensibilidad alterada",
+   "Embarazo o sospecha",
+   "Ácidos, inyectables o rosácea",
+   "Piel lesionada",
+   "Alergias a cosméticos, metales o medicamentos"
+  ],
+  "corporal": [
+   "Marcapasos o desfibrilador implantado",
+   "Arritmia o problema cardíaco",
+   "Epilepsia o convulsiones",
+   "Embarazo o sospecha",
+   "Trombosis o flebitis en la zona",
+   "Heridas o quemadura solar en la zona",
+   "Herpes o infección activa en la zona",
+   "Implantes, DIU o piercings metálicos en la zona",
+   "Sensibilidad alterada (anestesia, neuropatía)",
+   "Várices pronunciadas en la zona",
+   "Eccema o psoriasis activa en la zona",
+   "Acné con pus o foliculitis en la zona",
+   "Rosácea o capilares frágiles en la zona",
+   "Retinol o ácidos (72 horas)",
+   "Bótox, rellenos, hilos o lipolíticos (30 días)",
+   "Alergias a cosméticos, metales o medicamentos"
+  ]
+ },
+ "absolutas": {
+  "facial": [
+   "Marcapasos o arritmia",
+   "Epilepsia o convulsiones",
+   "Embarazo o sospecha",
+   "Piel lesionada"
+  ],
+  "corporal": [
+   "Marcapasos o desfibrilador implantado",
+   "Arritmia o problema cardíaco",
+   "Epilepsia o convulsiones",
+   "Embarazo o sospecha",
+   "Trombosis o flebitis en la zona",
+   "Heridas o quemadura solar en la zona",
+   "Herpes o infección activa en la zona"
+  ]
+ },
+ "piel": {
+  "tipo": [
+   "Seca",
+   "Grasa",
+   "Mixta",
+   "Sensible",
+   "Deshidratada"
+  ],
+  "fototipo": [
+   "I",
+   "II",
+   "III",
+   "IV",
+   "V",
+   "VI"
+  ],
+  "barrera": [
+   "íntegra",
+   "leve",
+   "comprometida"
+  ],
+  "sensibilidad": [
+   "baja",
+   "media",
+   "alta"
+  ]
+ },
+ "mapas": [
+  {
+   "titulo": "Mapa facial",
+   "corporal": false,
+   "zonas": [
+    "Frente",
+    "Entrecejo",
+    "Contorno de ojo derecho",
+    "Contorno de ojo izquierdo",
+    "Nariz",
+    "Mejilla derecha",
+    "Mejilla izquierda",
+    "Perioral",
+    "Mentón",
+    "Mandíbula derecha",
+    "Mandíbula izquierda",
+    "Cuello",
+    "Patas de gallina derechas",
+    "Patas de gallina izquierdas"
+   ],
+   "hallazgos": [
+    "Arrugas",
+    "Flacidez",
+    "Manchas",
+    "Acné activo",
+    "Poros dilatados",
+    "Exceso de grasa",
+    "Deshidratación",
+    "Rojez / sensibilidad"
+   ],
+   "centros": [
+    [
+     0.502,
+     0.055
+    ],
+    [
+     0.502,
+     0.219
+    ],
+    [
+     0.206,
+     0.377
+    ],
+    [
+     0.785,
+     0.377
+    ],
+    [
+     0.502,
+     0.416
+    ],
+    [
+     0.184,
+     0.46
+    ],
+    [
+     0.825,
+     0.46
+    ],
+    [
+     0.502,
+     0.612
+    ],
+    [
+     0.502,
+     0.762
+    ],
+    [
+     0.202,
+     0.67
+    ],
+    [
+     0.803,
+     0.67
+    ],
+    [
+     0.502,
+     0.945
+    ],
+    [
+     0.09,
+     0.271
+    ],
+    [
+     0.91,
+     0.271
+    ]
+   ]
+  },
+  {
+   "titulo": "Abdomen / Flancos",
+   "corporal": true,
+   "zonas": [
+    "1 · Supraumbilical derecho",
+    "2 · Supraumbilical izquierdo",
+    "3 · Infraumbilical derecho",
+    "4 · Infraumbilical izquierdo",
+    "5 · Flanco derecho",
+    "6 · Flanco izquierdo"
+   ],
+   "hallazgos": [
+    "Flacidez cutánea",
+    "Adiposidad localizada",
+    "Estrías rubras",
+    "Estrías albas"
+   ],
+   "centros": [
+    [
+     0.243,
+     0.124
+    ],
+    [
+     0.748,
+     0.124
+    ],
+    [
+     0.243,
+     0.876
+    ],
+    [
+     0.757,
+     0.876
+    ],
+    [
+     0.064,
+     0.752
+    ],
+    [
+     0.936,
+     0.752
+    ]
+   ]
+  },
+  {
+   "titulo": "Espalda",
+   "corporal": true,
+   "zonas": [
+    "1 · Hombros y dorsal alta derecha",
+    "2 · Hombros y dorsal alta izquierda",
+    "3 · Dorsal media derecha",
+    "4 · Dorsal media izquierda",
+    "5 · Lumbar derecha",
+    "6 · Lumbar izquierda"
+   ],
+   "hallazgos": [
+    "Foliculitis / acné inflamado",
+    "Comedones / puntos negros",
+    "Hiperpigmentación postinflamatoria",
+    "Exceso de sebo"
+   ],
+   "centros": [
+    [
+     0.851,
+     0.097
+    ],
+    [
+     0.149,
+     0.097
+    ],
+    [
+     0.821,
+     0.549
+    ],
+    [
+     0.187,
+     0.549
+    ],
+    [
+     0.799,
+     0.903
+    ],
+    [
+     0.209,
+     0.903
+    ]
+   ]
+  },
+  {
+   "titulo": "Piernas / Glúteos",
+   "corporal": true,
+   "zonas": [
+    "1 · Glúteo derecho",
+    "2 · Glúteo izquierdo",
+    "3 · Muslo anterior derecho",
+    "4 · Muslo anterior izquierdo",
+    "5 · Muslo posterior derecho",
+    "6 · Muslo posterior izquierdo",
+    "7 · Cara externa muslo derecho",
+    "8 · Cara externa muslo izquierdo",
+    "9 · Cara interna muslo derecho",
+    "10 · Cara interna muslo izquierdo",
+    "11 · Pantorrilla derecha",
+    "12 · Pantorrilla izquierda"
+   ],
+   "hallazgos": [
+    "Celulitis edematosa",
+    "Celulitis compacta",
+    "Flacidez",
+    "Telangiectasias · solo registro"
+   ],
+   "centros": [
+    [
+     0.941,
+     0.093
+    ],
+    [
+     0.786,
+     0.093
+    ],
+    [
+     0.091,
+     0.639
+    ],
+    [
+     0.426,
+     0.639
+    ],
+    [
+     0.941,
+     0.435
+    ],
+    [
+     0.786,
+     0.435
+    ],
+    [
+     0.046,
+     0.269
+    ],
+    [
+     0.472,
+     0.269
+    ],
+    [
+     0.196,
+     0.644
+    ],
+    [
+     0.323,
+     0.644
+    ],
+    [
+     0.954,
+     0.907
+    ],
+    [
+     0.772,
+     0.907
+    ]
+   ]
+  },
+  {
+   "titulo": "Brazos",
+   "corporal": true,
+   "zonas": [
+    "1 · Brazo anterior derecho",
+    "2 · Brazo anterior izquierdo",
+    "3 · Brazo posterior derecho",
+    "4 · Brazo posterior izquierdo",
+    "5 · Antebrazo derecho",
+    "6 · Antebrazo izquierdo"
+   ],
+   "hallazgos": [
+    "Flacidez tisular",
+    "Adiposidad localizada",
+    "Deshidratación"
+   ],
+   "centros": [
+    [
+     0.045,
+     0.164
+    ],
+    [
+     0.291,
+     0.164
+    ],
+    [
+     0.955,
+     0.344
+    ],
+    [
+     0.57,
+     0.344
+    ],
+    [
+     0.072,
+     0.836
+    ],
+    [
+     0.256,
+     0.836
+    ]
+   ]
+  },
+  {
+   "titulo": "Pecho",
+   "corporal": true,
+   "zonas": [
+    "1 · Escote",
+    "2 · Pectoral derecho",
+    "3 · Pectoral izquierdo",
+    "4 · Cuello anterior / esternón alto"
+   ],
+   "hallazgos": [
+    "Líneas en escote",
+    "Máculas solares / manchas",
+    "Flacidez / pérdida de elasticidad",
+    "Deshidratación",
+    "Estrías"
+   ],
+   "centros": [
+    [
+     0.5,
+     0.533
+    ],
+    [
+     0.149,
+     0.783
+    ],
+    [
+     0.851,
+     0.783
+    ],
+    [
+     0.5,
+     0.217
+    ]
+   ]
+  },
+  {
+   "titulo": "Abdomen / Flancos",
+   "corporal": true,
+   "zonas": [
+    "1 · Supraumbilical derecho",
+    "2 · Supraumbilical izquierdo",
+    "3 · Infraumbilical derecho",
+    "4 · Infraumbilical izquierdo",
+    "5 · Flanco derecho",
+    "6 · Flanco izquierdo"
+   ],
+   "hallazgos": [
+    "Flacidez cutánea",
+    "Adiposidad localizada",
+    "Estrías rubras",
+    "Estrías albas"
+   ],
+   "centros": [
+    [
+     0.243,
+     0.124
+    ],
+    [
+     0.748,
+     0.124
+    ],
+    [
+     0.243,
+     0.876
+    ],
+    [
+     0.757,
+     0.876
+    ],
+    [
+     0.064,
+     0.752
+    ],
+    [
+     0.936,
+     0.752
+    ]
+   ]
+  },
+  {
+   "titulo": "Espalda",
+   "corporal": true,
+   "zonas": [
+    "1 · Hombros y dorsal alta derecha",
+    "2 · Hombros y dorsal alta izquierda",
+    "3 · Dorsal media derecha",
+    "4 · Dorsal media izquierda",
+    "5 · Lumbar derecha",
+    "6 · Lumbar izquierda"
+   ],
+   "hallazgos": [
+    "Foliculitis / acné inflamado",
+    "Comedones / puntos negros",
+    "Hiperpigmentación postinflamatoria",
+    "Exceso de sebo"
+   ],
+   "centros": [
+    [
+     0.851,
+     0.097
+    ],
+    [
+     0.149,
+     0.097
+    ],
+    [
+     0.821,
+     0.549
+    ],
+    [
+     0.187,
+     0.549
+    ],
+    [
+     0.799,
+     0.903
+    ],
+    [
+     0.209,
+     0.903
+    ]
+   ]
+  },
+  {
+   "titulo": "Piernas / Glúteos",
+   "corporal": true,
+   "zonas": [
+    "1 · Glúteo derecho",
+    "2 · Glúteo izquierdo",
+    "3 · Muslo anterior derecho",
+    "4 · Muslo anterior izquierdo",
+    "5 · Muslo posterior derecho",
+    "6 · Muslo posterior izquierdo",
+    "7 · Cara externa muslo derecho",
+    "8 · Cara externa muslo izquierdo",
+    "9 · Cara interna muslo derecho",
+    "10 · Cara interna muslo izquierdo",
+    "11 · Pantorrilla derecha",
+    "12 · Pantorrilla izquierda"
+   ],
+   "hallazgos": [
+    "Celulitis edematosa",
+    "Celulitis compacta",
+    "Flacidez",
+    "Telangiectasias · solo registro"
+   ],
+   "centros": [
+    [
+     0.941,
+     0.093
+    ],
+    [
+     0.786,
+     0.093
+    ],
+    [
+     0.091,
+     0.639
+    ],
+    [
+     0.426,
+     0.639
+    ],
+    [
+     0.941,
+     0.435
+    ],
+    [
+     0.786,
+     0.435
+    ],
+    [
+     0.046,
+     0.269
+    ],
+    [
+     0.472,
+     0.269
+    ],
+    [
+     0.196,
+     0.644
+    ],
+    [
+     0.323,
+     0.644
+    ],
+    [
+     0.954,
+     0.907
+    ],
+    [
+     0.772,
+     0.907
+    ]
+   ]
+  },
+  {
+   "titulo": "Brazos",
+   "corporal": true,
+   "zonas": [
+    "1 · Brazo anterior derecho",
+    "2 · Brazo anterior izquierdo",
+    "3 · Brazo posterior derecho",
+    "4 · Brazo posterior izquierdo",
+    "5 · Antebrazo derecho",
+    "6 · Antebrazo izquierdo"
+   ],
+   "hallazgos": [
+    "Flacidez tisular",
+    "Adiposidad localizada",
+    "Deshidratación"
+   ],
+   "centros": [
+    [
+     0.045,
+     0.164
+    ],
+    [
+     0.291,
+     0.164
+    ],
+    [
+     0.955,
+     0.344
+    ],
+    [
+     0.57,
+     0.344
+    ],
+    [
+     0.072,
+     0.836
+    ],
+    [
+     0.256,
+     0.836
+    ]
+   ]
+  },
+  {
+   "titulo": "Pecho",
+   "corporal": true,
+   "zonas": [
+    "1 · Escote",
+    "2 · Pectoral derecho",
+    "3 · Pectoral izquierdo",
+    "4 · Cuello anterior / esternón alto"
+   ],
+   "hallazgos": [
+    "Líneas en escote",
+    "Máculas solares / manchas",
+    "Flacidez / pérdida de elasticidad",
+    "Deshidratación",
+    "Estrías"
+   ],
+   "centros": [
+    [
+     0.5,
+     0.533
+    ],
+    [
+     0.149,
+     0.783
+    ],
+    [
+     0.851,
+     0.783
+    ],
+    [
+     0.5,
+     0.217
+    ]
+   ]
+  },
+  {
+   "titulo": "Mapa facial",
+   "corporal": false,
+   "zonas": [
+    "Frente",
+    "Entrecejo",
+    "Contorno de ojo derecho",
+    "Contorno de ojo izquierdo",
+    "Nariz",
+    "Mejilla derecha",
+    "Mejilla izquierda",
+    "Perioral",
+    "Mentón",
+    "Mandíbula derecha",
+    "Mandíbula izquierda",
+    "Cuello",
+    "Patas de gallina derechas",
+    "Patas de gallina izquierdas"
+   ],
+   "hallazgos": [
+    "Arrugas",
+    "Flacidez",
+    "Manchas",
+    "Acné activo",
+    "Poros dilatados",
+    "Exceso de grasa",
+    "Deshidratación",
+    "Rojez / sensibilidad"
+   ],
+   "centros": [
+    [
+     0.502,
+     0.055
+    ],
+    [
+     0.502,
+     0.219
+    ],
+    [
+     0.206,
+     0.377
+    ],
+    [
+     0.785,
+     0.377
+    ],
+    [
+     0.502,
+     0.416
+    ],
+    [
+     0.184,
+     0.46
+    ],
+    [
+     0.825,
+     0.46
+    ],
+    [
+     0.502,
+     0.612
+    ],
+    [
+     0.502,
+     0.762
+    ],
+    [
+     0.202,
+     0.67
+    ],
+    [
+     0.803,
+     0.67
+    ],
+    [
+     0.502,
+     0.945
+    ],
+    [
+     0.09,
+     0.271
+    ],
+    [
+     0.91,
+     0.271
+    ]
+   ]
+  }
+ ],
+ "valoraciones": [
+  {
+   "corporal": false,
+   "seguimiento": false,
+   "zona": "",
+   "mapa": 0
+  },
+  {
+   "corporal": true,
+   "seguimiento": false,
+   "zona": "abdomen",
+   "mapa": 1
+  },
+  {
+   "corporal": true,
+   "seguimiento": false,
+   "zona": "espalda",
+   "mapa": 2
+  },
+  {
+   "corporal": true,
+   "seguimiento": false,
+   "zona": "piernas_gluteos",
+   "mapa": 3
+  },
+  {
+   "corporal": true,
+   "seguimiento": false,
+   "zona": "brazos",
+   "mapa": 4
+  },
+  {
+   "corporal": true,
+   "seguimiento": false,
+   "zona": "pecho",
+   "mapa": 5
+  },
+  {
+   "corporal": true,
+   "seguimiento": true,
+   "zona": "abdomen",
+   "mapa": 6
+  },
+  {
+   "corporal": true,
+   "seguimiento": true,
+   "zona": "espalda",
+   "mapa": 7
+  },
+  {
+   "corporal": true,
+   "seguimiento": true,
+   "zona": "piernas_gluteos",
+   "mapa": 8
+  },
+  {
+   "corporal": true,
+   "seguimiento": true,
+   "zona": "brazos",
+   "mapa": 9
+  },
+  {
+   "corporal": true,
+   "seguimiento": true,
+   "zona": "pecho",
+   "mapa": 10
+  },
+  {
+   "corporal": false,
+   "seguimiento": true,
+   "zona": "",
+   "mapa": 11
+  }
+ ],
+ "niveles": [
+  "",
+  "Leve",
+  "Moderado",
+  "Severo"
+ ]
+};
