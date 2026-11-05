@@ -379,8 +379,25 @@ function horaTarj() {
     <div class="hora-grande" style="margin-top:4px">${S.hora ? S.hora.h : '--:--'}</div>
     <div class="sub">${S.hora ? `${S.hora.f} · la puso este celular al conectarse. El equipo la lleva hasta que se apague.` : 'Se pone sola al conectar: la app le pasa la hora del celular.'}</div></div>`;
 }
+// iPhone sin Bluefy (Safari, Chrome de iPhone…): ahí no hay Bluetooth para páginas web. Se explica cómo abrirla en Bluefy.
+const APP_STORE_BLUEFY = 'https://apps.apple.com/app/id1492822055';
+const esIphone = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function guiaIphone() {
+  return `<div style="padding:4px 0 10px;text-align:center">
+    <div class="candado" style="background:linear-gradient(135deg,#25785A,var(--verde))">${ic('bt', 26)}</div>
+    <h3 style="margin:10px 0 4px;font-size:18px">En iPhone, TK_APP se abre en Bluefy</h3>
+    <p class="sub" style="margin:0 24px 14px">El iPhone no deja usar el Bluetooth del equipo desde Safari ni desde Chrome. Bluefy es un navegador gratuito que sí lo permite.</p></div>
+    <div class="tarj"><span class="eti2">Paso 1</span><div style="margin:4px 0 10px;font-weight:600">Instale Bluefy (una sola vez)</div>
+      <a class="btn pri" style="text-decoration:none" href="${APP_STORE_BLUEFY}" target="_blank" rel="noopener">Abrir Bluefy en la App Store</a></div>
+    <div class="tarj"><span class="eti2">Paso 2</span><div style="margin:4px 0 6px;font-weight:600">Abra Bluefy y pegue esta dirección</div>
+      <div class="sub" style="word-break:break-all;margin-bottom:10px">${esc(location.origin + location.pathname)}</div>
+      <button class="btn ver" data-act="copiar">Copiar la dirección</button>
+      <div class="sub" style="margin-top:8px">En Bluefy, guárdela en favoritos para la próxima vez.</div></div>
+    <div style="padding:0 14px 16px"><button class="btn sec" data-act="prueba">${ic('play', 16)}Ver la app sin equipo</button></div>`;
+}
 function pantallaConectar() {
   const ble = EquipoBle.disponible();
+  if (!ble && !S.buscando && esIphone()) return guiaIphone();
   return `<div style="padding:4px 0 10px;text-align:center">
     <div class="ble">${S.buscando ? '<i></i><i></i><i></i>' : ''}<b>${ic('bt', 30, 2.2)}</b></div>
     <h3 style="margin:8px 0 4px;font-size:18px">${S.buscando ? 'Conectando…' : 'Conecte el equipo'}</h3>
@@ -536,6 +553,11 @@ function accion(a) {
     S.p = S.p === 'pdf' ? (S.prev === 'firma' ? 'firma' : 'ficha') : S.p === 'ficha' ? 'usuarios' : S.p === 'logo' ? 'ajustes' : 'inicio';
     if (S.p === 'ficha' && !S.ficha) S.p = 'usuarios';
     pintar();
+  }
+  else if (a === 'copiar') {
+    const dir = location.origin + location.pathname;
+    (navigator.clipboard ? navigator.clipboard.writeText(dir) : Promise.reject()).then(() => tostada('Dirección copiada. Ábrala en Bluefy y péguela arriba.'))
+      .catch(() => tostada('Copie a mano esta dirección: ' + esc(dir), 8000));
   }
   else if (a === 'documentos') { window.open(URL_DOCUMENTOS, '_blank', 'noopener'); }
   else if (a === 'paso') { S.firmaPaso++; pintar(); }
