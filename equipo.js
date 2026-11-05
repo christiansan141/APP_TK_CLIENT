@@ -5,21 +5,22 @@
 'use strict';
 
 const NUS = '6e400001-b5a3-f393-e0a9-e50e24dcca9e', NUS_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e', NUS_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
-const AVISOS = ['pide_hora', 'firma_pedida', 'firma_cancelada', 'sd_error'];
+const AVISOS = ['pide_hora', 'firma_pedida', 'firma_cancelada'];
 
 class EquipoBase {
   constructor() { this.alEvento = () => {}; this.alCortar = () => {}; this.esperando = []; this.serie = ''; }
   // Espera la respuesta del mismo tipo (el equipo atiende un mensaje a la vez, en orden)
   pedir(m, ms = 20000) {
     return new Promise((ok, mal) => {
-      const p = {t: m.t, ok, mal, reloj: setTimeout(() => { this.esperando = this.esperando.filter(x => x !== p); mal(new Error('El equipo no respondió')); }, ms)};
+      const p = {t: m.t, id: m.id, f: m.f, ok, mal, reloj: setTimeout(() => { this.esperando = this.esperando.filter(x => x !== p); mal(new Error('El equipo no respondió')); }, ms)};
       this.esperando.push(p);
       this.enviar(m).catch(e => { clearTimeout(p.reloj); this.esperando = this.esperando.filter(x => x !== p); mal(e); });
     });
   }
   recibido(m) {
     if (AVISOS.includes(m.t)) { this.alEvento(m); return; }
-    const i = this.esperando.findIndex(p => p.t === m.t || m.t === 'error');
+    // La respuesta es del pedido del mismo tipo (y del mismo usuario y archivo): una tardía no se cruza con otra
+    const i = this.esperando.findIndex(p => m.t === 'error' || (p.t === m.t && (p.id === undefined || m.id === undefined || p.id === m.id) && (p.f === undefined || m.f === undefined || p.f === m.f)));
     if (i < 0) return;
     const p = this.esperando.splice(i, 1)[0];
     clearTimeout(p.reloj);
@@ -82,10 +83,11 @@ class EquipoPrueba extends EquipoBase {
   responder(m, ms = 250) { setTimeout(() => this.recibido(m), ms); }
   async enviar(m) {
     const t = m.t, PASES = 'tkapp-prueba-pases';
+    const leerPases = () => { try { return JSON.parse(localStorage.getItem(PASES) || '{}'); } catch (_) { return {}; } };
+    const guardarPases = p => { try { localStorage.setItem(PASES, JSON.stringify(p)); } catch (_) { /* sin memoria */ } };
     if (t === 'hola') {
-      let pases = {}; try { pases = JSON.parse(localStorage.getItem(PASES) || '{}'); } catch (_) { /* sin memoria */ }
-      const ahora = Date.now(), vale = m.pase && pases[m.pase] && ahora - pases[m.pase] < 5 * 864e5;
-      if (vale) { pases[m.pase] = ahora; try { localStorage.setItem(PASES, JSON.stringify(pases)); } catch (_) { /* nada */ } this.dentro = true; }
+      const pases = leerPases(), ahora = Date.now(), vale = m.pase && pases[m.pase] && ahora - pases[m.pase] < 5 * 864e5;
+      if (vale) { pases[m.pase] = ahora; guardarPases(pases); this.dentro = true; }
       return this.responder({t, serie: this.serie, fw: '1.0 · prueba', acceso: vale ? 'ok' : 'clave', espera: Math.max(0, Math.ceil((this.finEspera - ahora) / 1000))});
     }
     if (t === 'clave') {
@@ -93,8 +95,7 @@ class EquipoPrueba extends EquipoBase {
       if (ahora < this.finEspera) return this.responder({t, ok: false, espera: Math.ceil((this.finEspera - ahora) / 1000)});
       if (m.clave === '00123') {
         const pase = Array.from({length: 16}, () => 'abcdefghjkmnpqrstuvwxyz23456789'[Math.random() * 31 | 0]).join('');
-        let pases = {}; try { pases = JSON.parse(localStorage.getItem(PASES) || '{}'); } catch (_) { /* nada */ }
-        pases[pase] = ahora; try { localStorage.setItem(PASES, JSON.stringify(pases)); } catch (_) { /* nada */ }
+        const pases = leerPases(); pases[pase] = ahora; guardarPases(pases);
         this.fallos = this.bloqueos = 0; this.dentro = true;
         return this.responder({t, ok: true, pase});
       }
@@ -106,9 +107,10 @@ class EquipoPrueba extends EquipoBase {
     if (t === 'ping') return this.responder({t});
     if (!this.dentro) return this.responder({t: 'error', error: 'sin_clave'});
     if (t === 'hora') return this.responder({t, ok: true});
+    if (t === 'olvidar') { const pases = leerPases(); delete pases[m.pase]; guardarPases(pases); return this.responder({t, ok: true}); }
     if (t === 'usuarios') {
-      const q = (m.q || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
-      const lista = this.sd.usuarios.filter(u => q.length < 3 || u.nombre.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().includes(q) || u.cc.includes(q.replace(/\D/g, '') || '§'))
+      const q = sinTildes(m.q).toUpperCase();
+      const lista = this.sd.usuarios.filter(u => q.length < 3 || sinTildes(u.nombre).toUpperCase().includes(q) || u.cc.includes(q.replace(/\D/g, '') || '§'))
         .slice(0, 20).map(u => ({id: u.id, n: u.nombre, cc: u.cc, val: u.vals.length, ses: u.sess.length, ult: u.sess.length ? u.sess[u.sess.length - 1].fecha.split(' · ')[0] : '-'}));
       return this.responder({t, q: m.q || '', total: this.sd.usuarios.length, lista}, 450);
     }
@@ -144,11 +146,6 @@ class EquipoPrueba extends EquipoBase {
   simularCancelar() { if (this.firmaPedida) { this.firmaPedida = null; this.recibido({t: 'firma_cancelada'}); } }
   simularHora() { this.recibido({t: 'pide_hora'}); }
   desconectar() { this.dentro = false; setTimeout(() => this.cortado(), 50); }
-}
-
-function fechaEquipo(d) {            // como guarda el equipo: «05/11/2026 · 11:41»
-  const dos = n => String(n).padStart(2, '0');
-  return `${dos(d.getDate())}/${dos(d.getMonth() + 1)}/${d.getFullYear()} · ${dos(d.getHours())}:${dos(d.getMinutes())}`;
 }
 
 function datosDePrueba() {

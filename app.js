@@ -4,15 +4,13 @@
 
 const VERSION_APP = '1.0 · 05/11/2026';
 const URL_DOCUMENTOS = 'https://drive.google.com/drive/folders/1FRbFGo9VDIqJsnvl2BH4vQDcxtFaq83v';
-const ID = 'C';
 const S = {p: 'conectar', con: false, eq: null, prueba: false, buscando: false, hora: null, fw: '', clave: '', claveMal: false, quedan: 3, finEspera: 0,
   pend: false, nuevo: null, firmaPaso: 0, checks: [false, false], lienzoTotal: false, trazosTmp: [], trazos: [], aj: null, firmado: null, enviando: false,
-  usuarios: null, buscar: '', ficha: null, pdf: null, cons: {nombre: '', prestador: '', nit: '', tel: '', correo: ''}, logo: '', rec: null, toast: null, ultimo: null, prev: null};
-const E = {C: S};                       // pintar() y las piezas copiadas del simulador usan E[id]
+  usuarios: null, buscar: '', ficha: null, pdf: null, cons: {nombre: '', prestador: '', nit: '', tel: '', correo: ''}, consLeido: false, logo: '', rec: null, toast: null, ultimo: null, prev: null};
+const CAMPOS_CONS = ['nombre', 'prestador', 'nit', 'tel', 'correo'];
 
 // ---- utilidades ---------------------------------------------------------------------------------------------------------------
-const dos = n => String(n).padStart(2, '0');
-function ahora() { const d = new Date(); return {f: `${dos(d.getDate())}/${dos(d.getMonth() + 1)}/${d.getFullYear()}`, h: `${dos(d.getHours())}:${dos(d.getMinutes())}`}; }
+function ahora() { const [f, h] = fechaEquipo(new Date()).split(' · '); return {f, h}; }
 const isoLocal = () => { const d = new Date(); return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}T${dos(d.getHours())}:${dos(d.getMinutes())}`; };
 const iniciales = n => String(n || '').split(' ').filter(Boolean).slice(0, 2).map(x => x[0]).join('');
 const guardar = (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (_) { /* navegador sin memoria */ } };
@@ -63,12 +61,25 @@ async function entrar(conClave) {
   S.con = true; S.buscando = false; S.hora = ahora(); S.p = 'inicio'; S.clave = '';
   pintar();
   tostada(`${conClave ? 'Contraseña correcta: este celular queda de confianza. ' : ''}Conectado a ${S.eq.serie}. Fecha y hora enviadas al equipo: <b>${S.hora.f} · ${S.hora.h}</b>`);
-  try { const c = await S.eq.pedir({t: 'consultorio'}); if (!c.error) Object.assign(S.cons, c); } catch (_) { /* se pide de nuevo al usarlo */ }
-  try { const l = await S.eq.pedir({t: 'logo'}, 30000); S.logo = l.img ? 'data:image/jpeg;base64,' + l.img : ''; } catch (_) { /* sin logo */ }
+  await leerConsultorio();
   pintar();
 }
+// El consultorio y el logo viven en el equipo. Si no se pudieron leer (por ejemplo, porque estaba ejecutando), se vuelven a
+// pedir antes de armar un PDF o de abrir Ajustes; sin leerlos no se guarda nada encima.
+async function leerConsultorio() {
+  if (S.consLeido) return true;
+  try {
+    const c = await S.eq.pedir({t: 'consultorio'});
+    if (c.error) return false;
+    for (const k of CAMPOS_CONS) S.cons[k] = typeof c[k] === 'string' ? c[k] : '';
+    const l = await S.eq.pedir({t: 'logo'}, 30000);
+    S.logo = l.img ? logoValido('data:image/jpeg;base64,' + l.img) : '';
+    S.consLeido = true;
+  } catch (_) { /* se vuelve a pedir al usarlo */ }
+  return S.consLeido;
+}
 function perderConexion(motivo) {
-  Object.assign(S, {con: false, p: 'conectar', buscando: false, pend: false, lienzoTotal: false, hora: null, usuarios: null, ficha: null, pdf: null});
+  Object.assign(S, {con: false, p: 'conectar', buscando: false, pend: false, lienzoTotal: false, hora: null, usuarios: null, ficha: null, pdf: null, consLeido: false});
   if (S.eq) { S.eq.alCortar = () => {}; S.eq.desconectar(); }
   S.eq = null;
   if (motivo) tostada(motivo, 5500); else pintar();
@@ -105,17 +116,12 @@ function alAviso(m) {
     Object.assign(S, {pend: false, lienzoTotal: false, aj: null});
     if (S.p === 'firma') S.p = 'inicio';
     tostada('En el equipo se canceló la firma.');
-  } else if (m.t === 'sd_error') tostada('La micro SD del equipo no responde. Revísela en el equipo.', 6000);
+  }
 }
 
 // ---- firma: pantalla completa y ajuste (como el logo) ---------------------------------------------------------------------
 const F_W = 300, F_H = 80;
-function cajaTrazos(tr) {
-  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-  for (const t of tr) for (const [x, y] of t) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
-  return {x0, y0, w: Math.max(4, x1 - x0), h: Math.max(4, y1 - y0)};
-}
-const trazosAPath = tr => tr.filter(t => t.length).map(t => 'M' + (t.length === 1 ? [t[0], [t[0][0] + .1, t[0][1] + .1]] : t).map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L')).join('');
+// cajaTrazos() y trazosAPath() están en formatos.js (las comparte con los PDF)
 function encajarFirma() {
   const b = cajaTrazos(S.trazos), z = Math.min(F_W * .9 / b.w, F_H * .8 / b.h);
   S.aj = {z, z0: z, x: F_W / 2 - (b.x0 + b.w / 2) * z, y: F_H / 2 - (b.y0 + b.h / 2) * z, d: trazosAPath(S.trazos)};
@@ -127,13 +133,14 @@ function firmaComoTexto() {
   const A = S.aj;
   return 'firma app 300x80\n' + S.trazos.map(t => t.map(([x, y]) => `${Math.round(x * A.z + A.x)},${Math.round(y * A.z + A.y)}`).join(' ')).join('\n') + '\n';
 }
+const firmaSuficiente = () => S.trazosTmp.reduce((n, t) => n + t.length, 0) >= 10;      // como en la pantalla: al menos 10 puntos
 function capaFirma() {
   const mouse = matchMedia('(hover: hover) and (pointer: fine)').matches;
   return `<div class="firma-total">
-    <div class="ft-cab"><div><b>${S.nuevo.nombre}</b><span>Firme ${mouse ? 'con el mouse' : 'con el dedo o el lápiz'} en cualquier parte de la pantalla</span></div>
+    <div class="ft-cab"><div><b>${esc(S.nuevo.nombre)}</b><span>Firme ${mouse ? 'con el mouse' : 'con el dedo o el lápiz'} en cualquier parte de la pantalla</span></div>
       <button data-act="ftborrar">Borrar</button><button data-act="ftcancelar">Cancelar</button></div>
-    <div class="ft-lienzo"><canvas data-ft></canvas><div class="ft-guia"><i></i><span>FIRMA DEL TITULAR · C.C. ${conPuntos(S.nuevo.cc)}</span></div></div>
-    <div class="ft-pie"><span class="sub">Después puede acercarla y moverla para que quede bien en el PDF.</span><button class="btn ver" data-act="ftlisto" ${S.trazosTmp.length ? '' : 'disabled'}>${ic('check', 18, 2.6)}Listo</button></div></div>`;
+    <div class="ft-lienzo"><canvas data-ft></canvas><div class="ft-guia"><i></i><span>FIRMA DEL TITULAR · C.C. ${esc(conPuntos(S.nuevo.cc))}</span></div></div>
+    <div class="ft-pie"><span class="sub">Después puede acercarla y moverla para que quede bien en el PDF.</span><button class="btn ver" data-act="ftlisto" ${firmaSuficiente() ? '' : 'disabled'}>${ic('check', 18, 2.6)}Listo</button></div></div>`;
 }
 function prepararFirmaTotal(cel) {
   const c = cel.querySelector('[data-ft]'), caja = c.parentElement;
@@ -147,17 +154,18 @@ function prepararFirmaTotal(cel) {
   c.addEventListener('pointerdown', e => { e.preventDefault(); try { c.setPointerCapture(e.pointerId); } catch (_) { /* igual dibuja */ } actual = [punto(e)]; S.trazosTmp.push(actual); dibujar(actual); });
   c.addEventListener('pointermove', e => {
     if (!actual) return;
-    for (const ev of (e.getCoalescedEvents ? e.getCoalescedEvents() : [e])) actual.push(punto(ev));
+    const juntos = e.getCoalescedEvents ? e.getCoalescedEvents() : [];          // los puntos intermedios, si el navegador los da
+    for (const ev of (juntos.length ? juntos : [e])) actual.push(punto(ev));
     g.clearRect(0, 0, w, h); S.trazosTmp.forEach(dibujar);
   });
-  const soltar = () => { if (!actual) return; actual = null; const b = cel.querySelector('[data-act="ftlisto"]'); if (b) b.disabled = false; };
+  const soltar = () => { if (!actual) return; actual = null; const b = cel.querySelector('[data-act="ftlisto"]'); if (b) b.disabled = !firmaSuficiente(); };
   c.addEventListener('pointerup', soltar); c.addEventListener('pointercancel', soltar);
 }
 function pasoAjuste() {
   return `<div class="tarj"><span class="eti2">Paso 3 de 3 · Ajuste su firma</span><div class="sub" style="margin:2px 0 10px">Arrástrela y acérquela o aléjela hasta que llene el recuadro. Lo que queda dentro es lo que sale en el PDF.</div>
       <div class="ajuste" data-ajuste><svg width="100%" height="100%"><g data-g>${pathFirma(S.aj.d, 2.8)}</g></svg><div class="marco-firma"><i></i></div></div>
       <div class="zoom-f"><button data-act="zmenos" aria-label="Alejar">−</button><input data-zoomf type="range" min="40" max="300" value="${Math.round(S.aj.z / S.aj.z0 * 100)}" aria-label="Tamaño de la firma"><button data-act="zmas" aria-label="Acercar">+</button><button class="anotar" data-act="centrar">Centrar</button></div></div>
-    <div class="tarj"><span class="eti2">Así sale en el PDF</span><div class="vista-firma"><div class="vf-trazo" data-vistaf>${firmaAjustadaSvg(S.aj, 240, 64)}</div><div class="vf-linea">Firma del Titular · ${S.nuevo.nombre}</div></div></div>
+    <div class="tarj"><span class="eti2">Así sale en el PDF</span><div class="vista-firma"><div class="vf-trazo" data-vistaf>${firmaAjustadaSvg(S.aj, 240, 64)}</div><div class="vf-linea">Firma del Titular · ${esc(S.nuevo.nombre)}</div></div></div>
     <div style="display:flex;gap:10px;margin:0 14px 16px"><button class="btn sec" data-act="abrirfirma">Firmar de nuevo</button><button class="btn ver" data-act="enviar" ${S.enviando ? 'disabled' : ''}>${ic('check', 18, 2.6)}${S.enviando ? 'Enviando…' : 'Aceptar y enviar'}</button></div>`;
 }
 function prepararAjuste(cel) {
@@ -224,7 +232,7 @@ function pantallaLogo() {
       <div style="display:flex;align-items:center;gap:10px;margin:12px 0 4px"><span class="sub">−</span><input data-zoom type="range" min="100" max="400" value="100" style="flex:1;accent-color:var(--azul)"><span class="sub">+</span></div></div>
     <div class="tarj"><span class="eti2">Así sale en el PDF</span>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:10px;border-radius:12px;background:#fff;box-shadow:inset 0 0 0 1px var(--borde)">
-        <canvas data-vista width="${LOGO_W}" height="${LOGO_H}" style="width:120px;height:48px"></canvas><div style="text-align:right;font-size:9px;color:var(--tinta2);line-height:1.4"><b style="font-size:11px;color:var(--tinta)">${S.cons.nombre}</b><br>${S.cons.prestador}</div></div></div>
+        <canvas data-vista width="${LOGO_W}" height="${LOGO_H}" style="width:120px;height:48px"></canvas><div style="text-align:right;font-size:9px;color:var(--tinta2);line-height:1.4"><b style="font-size:11px;color:var(--tinta)">${esc(S.cons.nombre)}</b><br>${esc(S.cons.prestador)}</div></div></div>
     <div style="display:flex;gap:10px;margin:0 14px 16px"><button class="btn sec" data-act="otrafoto">Otra foto</button><button class="btn pri" data-act="usarlogo" ${S.enviando ? 'disabled' : ''}>${S.enviando ? 'Enviando…' : 'Usar este recorte'}</button></div>`;
 }
 function prepararRecorte(cel) {
@@ -249,7 +257,9 @@ function prepararRecorte(cel) {
 }
 async function usarLogo() {
   if (S.enviando || !S._logoCanvas) return;
-  const datos = S._logoCanvas.toDataURL('image/jpeg', .85);
+  let datos, q = .85;                       // el equipo acepta hasta 30 000 letras en base64: se comprime hasta que quepa
+  do { datos = S._logoCanvas.toDataURL('image/jpeg', q); q -= .1; } while (datos.length > 28000 && q > .2);
+  if (datos.length > 28000) { tostada('La foto es muy pesada para el logo. Pruebe con otra.'); return; }
   S.enviando = true; pintar();
   try {
     const r = await S.eq.pedir({t: 'logo', img: datos.split(',')[1]}, 60000);
@@ -294,6 +304,7 @@ const nombreArchivo = n => String(n).padStart(4, '0');
 async function abrirPdf(k, n, id = S.ficha && S.ficha.id) {
   S.prev = S.p; S.p = 'pdf'; S.pdf = {cargando: 'Trayendo los datos del equipo…'}; pintar();
   try {
+    if (!await leerConsultorio()) throw new Error('No se pudieron leer los datos del consultorio del equipo (¿está ejecutando?). Vuelva a intentar en un momento.');
     if (!S.ficha || S.ficha.id !== id || !S.ficha.u) { await abrirFicha(id); S.p = 'pdf'; }
     const F = S.ficha, base = {u: F.u, cons: S.cons, logo: S.logo};
     let html, titulo, nombre;
@@ -318,7 +329,7 @@ async function abrirPdf(k, n, id = S.ficha && S.ficha.id) {
       html = docHistorial({...base, sesiones, vals}); titulo = 'Historial'; nombre = `Historial_${F.u.nombre}`;
     }
     await document.fonts.ready;
-    S.pdf = {hojas: paginar(html, base), titulo, nombre: nombre.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '_') + '.pdf', quien: F.u.nombre};
+    S.pdf = {hojas: paginar(html, base), titulo, nombre: sinTildes(nombre).replace(/[^\w]+/g, '_') + '.pdf', quien: F.u.nombre};
   } catch (e) { S.pdf = {error: e.message || 'No se pudo armar el documento.'}; }
   if (S.p === 'pdf') pintar();
 }
@@ -387,7 +398,7 @@ function pantallaClave() {
   const tecla = k => k === '' ? '<span></span>' : `<button data-tecla="${k}" ${espera ? 'disabled' : ''}>${k === '⌫' ? ic('back', 20) : k}</button>`;
   return `<div style="text-align:center;padding:0 22px">
       <div class="candado">${ic('lock', 26)}</div>
-      <h3 style="margin:10px 0 2px;font-size:18px">Contraseña del equipo</h3><div class="sub"><b style="color:var(--tinta)">${S.eq ? S.eq.serie : ''}</b> · SKIN TRANSDERM PLUS+</div>
+      <h3 style="margin:10px 0 2px;font-size:18px">Contraseña del equipo</h3><div class="sub"><b style="color:var(--tinta)">${esc(S.eq ? S.eq.serie : '')}</b> · SKIN TRANSDERM PLUS+</div>
       <div class="clave-cajas ${S.claveMal ? 'sacude' : ''}">${cajas}</div>
       <div class="sub clave-msg">${msg}</div></div>
     <div class="teclado">${['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map(tecla).join('')}</div>
@@ -396,7 +407,7 @@ function pantallaClave() {
 function pantallaInicio() {
   return `${horaTarj()}
     <div class="baldosas">
-      ${S.pend ? `<div class="bal grande verde" data-go="firma"><div class="ic">${ic('pen', 22)}</div><div><b>Firmar la autorización</b><span>${S.nuevo.nombre} espera en el equipo</span></div></div>` : ''}
+      ${S.pend ? `<div class="bal grande verde" data-go="firma"><div class="ic">${ic('pen', 22)}</div><div><b>Firmar la autorización</b><span>${esc(S.nuevo.nombre)} espera en el equipo</span></div></div>` : ''}
       <div class="bal grande" data-go="usuarios"><div class="ic">${ic('users', 22)}</div><div><b>Usuarios y PDF</b><span>Buscar, ver la ficha y sacar documentos</span></div></div>
       <div class="bal" data-go="ajustes"><div class="ic">${ic('gear', 20)}</div><div><b>Consultorio</b><span>Logo y datos de los PDF</span></div></div>
       <div class="bal" data-act="documentos"><div class="ic">${ic('doc', 20)}</div><div><b>Documentos</b><span>Ficha técnica, registro y manual</span></div></div>
@@ -409,13 +420,13 @@ function pantallaInicio() {
 function pantallaFirma() {
   if (S.firmado) return `<div style="text-align:center;padding:30px 22px">
       <div style="width:76px;height:76px;border-radius:50%;margin:0 auto 14px;background:var(--verde);display:grid;place-items:center;color:#fff;box-shadow:0 12px 26px rgba(46,143,102,.35)">${ic('check', 38, 3)}</div>
-      <h3 style="margin:0 0 6px;font-size:18px">Firma guardada en el equipo</h3><p class="sub" style="margin:0 0 18px">${S.nuevo.nombre} · ${S.firmado.f} · ${S.firmado.h}<br>El equipo ya siguió a la valoración inicial.</p>
+      <h3 style="margin:0 0 6px;font-size:18px">Firma guardada en el equipo</h3><p class="sub" style="margin:0 0 18px">${esc(S.nuevo.nombre)} · ${S.firmado.f} · ${S.firmado.h}<br>El equipo ya siguió a la valoración inicial.</p>
       <button class="btn pri" data-act="pdfci">${ic('doc', 18)}Ver la autorización en PDF</button><div style="height:10px"></div><button class="btn sec" data-go="inicio">Listo</button></div>`;
   if (!S.pend) return `<div style="text-align:center;padding:40px 26px"><div class="ico" style="width:64px;height:64px;border-radius:20px;margin:0 auto 12px;background:#fff;display:grid;place-items:center;color:var(--tinta3)">${ic('pen', 30)}</div>
       <h3 style="margin:0 0 6px;font-size:16px">Nada que firmar</h3><p class="sub">La firma se pide desde el equipo: Usuario nuevo → Firmar en la app.</p></div>`;
   const pasos = `<div class="pasos">${[0, 1, 2].map(i => `<i class="${i <= Math.min(2, S.firmaPaso) ? 'on' : ''}"></i>`).join('')}</div>`;
   if (S.firmaPaso === 0) return `${pasos}<div class="tarj" style="text-align:center;padding:22px 16px"><span class="eti2">Paso 1 de 3 · ¿Es usted?</span><div style="height:14px"></div>
-      <div class="av" style="width:64px;height:64px;font-size:21px;margin:0 auto 10px">${iniciales(S.nuevo.nombre)}</div><h3 style="margin:0;font-size:18px">${S.nuevo.nombre}</h3><div class="sub">C.C. ${conPuntos(S.nuevo.cc)}</div>
+      <div class="av" style="width:64px;height:64px;font-size:21px;margin:0 auto 10px">${esc(iniciales(S.nuevo.nombre))}</div><h3 style="margin:0;font-size:18px">${esc(S.nuevo.nombre)}</h3><div class="sub">C.C. ${esc(conPuntos(S.nuevo.cc))}</div>
       <p class="sub" style="margin:14px 0 0">Si el nombre o la cédula están mal, corríjalos en el equipo antes de firmar.</p></div>
       <div style="padding:0 14px"><button class="btn pri" data-act="paso">Sí, continuar</button></div>`;
   if (S.firmaPaso === 1) return `${pasos}<div class="tarj"><span class="eti2">Paso 2 de 3 · Lea y acepte</span><p class="legal-corto" style="margin:8px 0">${textoCi()}</p><button class="anotar" data-act="pdfleer">Leer el documento completo</button>
@@ -424,13 +435,13 @@ function pantallaFirma() {
       <div style="padding:0 14px 16px"><button class="btn pri" data-act="paso" ${S.checks[0] && S.checks[1] ? '' : 'disabled'}>Continuar a la firma</button></div>`;
   if (S.firmaPaso === 3 && S.aj) return pasos + pasoAjuste();
   return `${pasos}<div class="tarj"><span class="eti2">Paso 3 de 3 · Firme</span><div class="sub" style="margin:4px 0 12px">Se abre toda la pantalla para firmar cómodo, con el dedo, el lápiz o el mouse.</div>
-      <button class="zona-firmar" data-act="abrirfirma">${ic('pen', 30)}<b>Toque aquí para firmar</b><span>${S.nuevo.nombre} · C.C. ${conPuntos(S.nuevo.cc)}</span></button></div>`;
+      <button class="zona-firmar" data-act="abrirfirma">${ic('pen', 30)}<b>Toque aquí para firmar</b><span>${esc(S.nuevo.nombre)} · C.C. ${esc(conPuntos(S.nuevo.cc))}</span></button></div>`;
 }
-const textoCi = () => `<b>Autorización para el tratamiento de datos personales y aceptación de las condiciones de uso del equipo.</b> Autorizo a ${S.cons.prestador || 'el profesional'} (${S.cons.nombre || 'el consultorio'}) a tratar mis datos (nombre, cédula, esta autorización con mi firma, mis valoraciones y mi historial de sesiones) según la Ley 1581 de 2012. Algunos son datos sensibles de salud y no estoy obligado(a) a autorizarlos. Los datos quedan solo en el equipo; el fabricante no los recibe. Conozco las condiciones de uso del equipo (8.1 a 8.7) y que esto no reemplaza el consentimiento del procedimiento.`;
+const textoCi = () => `<b>Autorización para el tratamiento de datos personales y aceptación de las condiciones de uso del equipo.</b> Autorizo a ${esc(S.cons.prestador) || 'el profesional'} (${esc(S.cons.nombre) || 'el consultorio'}) a tratar mis datos (nombre, cédula, esta autorización con mi firma, mis valoraciones y mi historial de sesiones) según la Ley 1581 de 2012. Algunos son datos sensibles de salud y no estoy obligado(a) a autorizarlos. Los datos quedan solo en el equipo; el fabricante no los recibe. Conozco las condiciones de uso del equipo (8.1 a 8.7) y que esto no reemplaza el consentimiento del procedimiento.`;
 function pantallaUsuarios() {
   const U = S.usuarios;
   const lista = !U ? '<div class="sub" style="padding:10px 0">Trayendo los usuarios del equipo…</div>' : U.error ? `<div class="sub" style="padding:10px 0">${U.error}</div>`
-    : U.lista.map(u => `<div class="fila-u" data-ficha="${u.id}"><div class="av">${iniciales(u.n)}</div><div><b>${u.n}</b><span class="sub">C.C. ${conPuntos(u.cc)} · ${u.val} val. · ${u.ses} ses.${u.ult && u.ult !== '-' ? ' · ' + u.ult : ''}</span></div><span class="chev">${ic('chev', 18)}</span></div>`).join('')
+    : U.lista.map(u => `<div class="fila-u" data-ficha="${+u.id}"><div class="av">${esc(iniciales(u.n))}</div><div><b>${esc(u.n)}</b><span class="sub">C.C. ${esc(conPuntos(u.cc))} · ${+u.val} val. · ${+u.ses} ses.${u.ult && u.ult !== '-' ? ' · ' + esc(u.ult) : ''}</span></div><span class="chev">${ic('chev', 18)}</span></div>`).join('')
       || '<div class="sub" style="padding:10px 0">Ningún usuario con ese nombre o cédula.</div>';
   return `<div class="busca">${ic('search', 18)}<input data-buscar placeholder="Nombre o cédula (3 letras basta)" value="${S.buscar.replace(/"/g, '&quot;')}"></div>
     <div class="tarj">${U && !U.error ? `<span class="eti2">${S.buscar.trim().length >= 3 ? `${U.lista.length} resultado${U.lista.length === 1 ? '' : 's'}` : `Los más recientes · ${U.total} registrados`}</span>` : ''}${lista}</div>
@@ -440,9 +451,9 @@ function pantallaFicha() {
   const F = S.ficha;
   if (!F || F.cargando) return '<div class="tarj"><div class="sub">Leyendo la ficha en el equipo…</div></div>';
   if (F.error) return `<div class="tarj"><div class="sub">${F.error}</div></div>`;
-  const fila = (icono, t, sub, act) => `<div class="doc-fila"><div class="ico">${ic(icono, 18)}</div><div><b>${t}</b><span class="sub">${sub}</span></div><button class="pdfb" data-pdf="${act}">${ic('doc', 14)}PDF</button></div>`;
+  const fila = (icono, t, sub, act) => `<div class="doc-fila"><div class="ico">${ic(icono, 18)}</div><div><b>${esc(t)}</b><span class="sub">${esc(sub)}</span></div><button class="pdfb" data-pdf="${act}">${ic('doc', 14)}PDF</button></div>`;
   const ci = F.ci || {};
-  return `<div class="tarj" style="display:flex;gap:12px;align-items:center"><div class="av" style="width:48px;height:48px;font-size:16px">${iniciales(F.u.nombre)}</div><div><h4>${F.u.nombre}</h4><span class="sub">C.C. ${conPuntos(F.u.cc)}${F.u.alta ? ' · desde ' + String(F.u.alta).split(' · ')[0] : ''}</span></div></div>
+  return `<div class="tarj" style="display:flex;gap:12px;align-items:center"><div class="av" style="width:48px;height:48px;font-size:16px">${esc(iniciales(F.u.nombre))}</div><div><h4>${esc(F.u.nombre)}</h4><span class="sub">C.C. ${esc(conPuntos(F.u.cc))}${F.u.alta ? ' · desde ' + esc(String(F.u.alta).split(' · ')[0]) : ''}</span></div></div>
     <div class="tarj"><span class="eti2">Autorización</span>${fila('shield', 'Autorización firmada', `${ci.fecha || '—'} · ${ci.medio === 'app' ? 'firmada en TK_APP' : 'firmada en el equipo'}`, 'ci:0')}</div>
     <div class="tarj"><span class="eti2">Valoraciones · ${F.vals.length}</span>${F.vals.map(v => fila(/corporal/i.test(v.titulo) ? 'body' : 'face', v.titulo || `Valoración n.º ${v.n}`, `${v.fecha || ''} · n.º ${v.n}`, 'val:' + v.n)).join('') || '<div class="sub" style="padding:8px 0">Sin valoraciones.</div>'}</div>
     <div class="tarj"><div style="display:flex;align-items:center;justify-content:space-between"><span class="eti2">Historial · ${F.sess.length} sesiones</span>${F.sess.length || F.vals.length ? `<button class="pdfb" data-pdf="hist:0">${ic('doc', 14)}Todo en PDF</button>` : ''}</div>
@@ -452,20 +463,20 @@ function pantallaFicha() {
 function pantallaPdf() {
   const D = S.pdf || {};
   if (D.cargando) return `<div class="tarj" style="text-align:center;padding:30px 16px"><span class="girando" style="width:28px;height:28px"></span><div class="sub" style="margin-top:10px">${D.cargando}</div></div>`;
-  if (D.error) return `<div class="tarj"><b>No se pudo armar el documento</b><div class="sub" style="margin-top:4px">${D.error}</div></div>`;
-  return `<div class="tarj" style="padding:12px 14px"><span class="eti2">${D.titulo} · ${D.quien}</span><div class="sub">${D.hojas.length} ${D.hojas.length === 1 ? 'hoja' : 'hojas'} tamaño carta · armado ahora con los datos del equipo</div></div>
+  if (D.error) return `<div class="tarj"><b>No se pudo armar el documento</b><div class="sub" style="margin-top:4px">${esc(D.error)}</div></div>`;
+  return `<div class="tarj" style="padding:12px 14px"><span class="eti2">${esc(D.titulo)} · ${esc(D.quien)}</span><div class="sub">${D.hojas.length} ${D.hojas.length === 1 ? 'hoja' : 'hojas'} tamaño carta · armado ahora con los datos del equipo</div></div>
     <div class="mini-pdf" data-mini style="height:360px"></div>
     <div style="display:flex;gap:10px;margin:14px 14px 18px"><button class="btn pri" data-act="compartir" ${D.haciendo ? 'disabled' : ''}>${ic('share', 18)}${D.haciendo || 'Compartir'}</button><button class="btn sec" data-act="guardar" ${D.haciendo ? 'disabled' : ''}>${ic('down', 18)}Guardar PDF</button></div>`;
 }
 function pantallaAjustes() {
-  const c = (e, k, tipo = 'text') => `<div class="campo"><span>${e}</span><input data-cons="${k}" type="${tipo}" value="${String(S.cons[k] || '').replace(/"/g, '&quot;')}" maxlength="80"></div>`;
+  const c = (e, k, tipo = 'text') => `<div class="campo"><span>${e}</span><input data-cons="${k}" type="${tipo}" value="${esc(S.cons[k])}" maxlength="80"></div>`;
   const pase = leer(paseKey());
   return `<div class="tarj"><span class="eti2">Consultorio · sale en los PDF</span><div style="height:8px"></div>
-      <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">${S.logo ? `<img src="${S.logo}" style="width:100px;height:40px;border-radius:6px;box-shadow:0 0 0 1px var(--borde);object-fit:cover" alt="Logo">` : '<div style="width:100px;height:40px;border-radius:6px;box-shadow:inset 0 0 0 1.5px var(--borde);display:grid;place-items:center;font-size:10px;color:var(--tinta3)">Sin logo</div>'}<button class="btn sec" style="height:40px;font-size:12.5px" data-act="otrafoto">Cambiar logo</button></div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">${logoValido(S.logo) ? `<img src="${logoValido(S.logo)}" style="width:100px;height:40px;border-radius:6px;box-shadow:0 0 0 1px var(--borde);object-fit:cover" alt="Logo">` : '<div style="width:100px;height:40px;border-radius:6px;box-shadow:inset 0 0 0 1.5px var(--borde);display:grid;place-items:center;font-size:10px;color:var(--tinta3)">Sin logo</div>'}<button class="btn sec" style="height:40px;font-size:12.5px" data-act="otrafoto">Cambiar logo</button></div>
       ${c('Nombre', 'nombre')}${c('Prestador', 'prestador')}${c('NIT', 'nit')}${c('Teléfono', 'tel', 'tel')}${c('Correo para los PDF', 'correo', 'email')}
-      <button class="btn pri" style="height:42px;font-size:13px" data-act="guardarcons" ${S.enviando ? 'disabled' : ''}>${S.enviando ? 'Guardando…' : 'Guardar en el equipo'}</button>
+      <button class="btn pri" style="height:42px;font-size:13px" data-act="guardarcons" ${S.enviando || !S.consLeido ? 'disabled' : ''}>${S.enviando ? 'Guardando…' : S.consLeido ? 'Guardar en el equipo' : 'Leyendo los datos del equipo…'}</button>
       <div class="sub" style="margin-top:8px">Se guardan en el equipo: también los ve la pantalla (Ajustes · Consultorio).</div></div>
-    <div class="tarj"><span class="eti2">Equipo</span><div class="doc-fila"><div class="ico">${ic('bt', 18)}</div><div><b>${S.eq ? S.eq.serie : ''}</b><span class="sub">Programa ${S.fw || '—'} · TK_APP ${VERSION_APP}</span></div></div>
+    <div class="tarj"><span class="eti2">Equipo</span><div class="doc-fila"><div class="ico">${ic('bt', 18)}</div><div><b>${esc(S.eq ? S.eq.serie : '')}</b><span class="sub">Programa ${esc(S.fw) || '—'} · TK_APP ${VERSION_APP}</span></div></div>
       <div class="doc-fila"><div class="ico" style="color:var(--verde)">${ic('shield', 18)}</div><div><b>Celular de confianza</b><span class="sub">${pase ? 'Entra sin contraseña mientras se conecte al menos cada 5 días.' : 'Pedirá la contraseña al conectar.'}</span></div></div>
       <div style="display:flex;gap:8px;margin-top:6px"><button class="btn sec" style="font-size:12.5px" data-act="olvidar">Olvidar equipo</button><button class="btn sec" style="font-size:12.5px" data-act="desconectar">Desconectar</button></div></div><div style="height:4px"></div>`;
 }
@@ -486,9 +497,9 @@ function cuerpo() {
 function marco() {      // arriba la barra de A (marca y conexión); debajo el paso a paso de C
   const tst = S.toast ? `<div class="tostada">${ic('check', 18, 2.6)}<div>${S.toast}</div></div>` : '';
   const barra = `<div class="barra"><div class="marca-app"><div class="lg">${LOGO_TK}</div><div><b>TK_APP</b><small>INGENIERÍA PARA LA ESTÉTICA${S.prueba ? ' · EQUIPO DE PRUEBA' : ''}</small></div></div>
-      <div class="conx ${S.con ? 'si' : ''}" ${S.con ? '' : 'data-go="conectar"'}><span class="pt"></span>${S.con ? `${S.eq.serie} conectado` : 'Sin equipo conectado'}<span class="der">${S.con ? (S.hora ? 'Hora ' + S.hora.h : 'Bluetooth') : 'Toque para conectar'}</span></div></div>`;
+      <div class="conx ${S.con ? 'si' : ''}" ${S.con ? '' : 'data-go="conectar"'}><span class="pt"></span>${S.con ? `${esc(S.eq.serie)} conectado` : 'Sin equipo conectado'}<span class="der">${S.con ? (S.hora ? 'Hora ' + S.hora.h : 'Bluetooth') : 'Toque para conectar'}</span></div></div>`;
   const volver = !['inicio', 'conectar'].includes(S.p) ? `<button class="volver" data-act="atras">${ic('back', 16)}${['pdf', 'logo', 'ficha'].includes(S.p) ? 'Volver' : S.p === 'clave' ? 'Cancelar' : 'Inicio'}</button>` : '';
-  const titulo = S.p === 'inicio' ? `<div class="hola-t"><b>${S.cons.nombre || 'TK_APP'}</b><small>¿Qué quiere hacer?</small></div>` : S.p === 'conectar' || S.p === 'clave' ? '' : `<h2>${TITULOS[S.p]}</h2>`;
+  const titulo = S.p === 'inicio' ? `<div class="hola-t"><b>${esc(S.cons.nombre) || 'TK_APP'}</b><small>¿Qué quiere hacer?</small></div>` : S.p === 'conectar' || S.p === 'clave' ? '' : `<h2>${TITULOS[S.p]}</h2>`;
   return `<div class="app vA vF">${barra}<div class="top">${volver}${titulo}</div><div class="cuerpo">${cuerpo()}</div>${S.lienzoTotal ? capaFirma() : ''}${tst}</div>`;
 }
 function pintar() {
@@ -514,9 +525,10 @@ function ir(p) {
   if (p === 'firma' && S.firmado && !S.pend) S.firmado = null;
   S.prev = S.p; S.p = p;
   if (p === 'usuarios') { S.usuarios = null; cargarUsuarios(); }
+  if (p === 'ajustes' && !S.consLeido) leerConsultorio().then(() => { if (S.p === 'ajustes') pintar(); });
   pintar();
 }
-function accion(a, el) {
+function accion(a) {
   if (a === 'buscar') buscarEquipo(false);
   else if (a === 'prueba') buscarEquipo(true);
   else if (a === 'atras') {
@@ -530,18 +542,18 @@ function accion(a, el) {
   else if (a === 'abrirfirma') { S.trazosTmp = []; S.lienzoTotal = true; pintar(); }
   else if (a === 'ftborrar') { S.trazosTmp = []; pintar(); }
   else if (a === 'ftcancelar') { S.lienzoTotal = false; pintar(); }
-  else if (a === 'ftlisto') { if (!S.trazosTmp.length) return; S.trazos = S.trazosTmp; S.trazosTmp = []; S.lienzoTotal = false; encajarFirma(); S.firmaPaso = 3; pintar(); }
+  else if (a === 'ftlisto') { if (!firmaSuficiente()) return; S.trazos = S.trazosTmp; S.trazosTmp = []; S.lienzoTotal = false; encajarFirma(); S.firmaPaso = 3; pintar(); }
   else if (a === 'zmas' || a === 'zmenos') { if (S._zoomEn) S._zoomEn(a === 'zmas' ? 1.2 : 1 / 1.2); }
   else if (a === 'centrar') { encajarFirma(); pintar(); }
   else if (a === 'enviar') enviarFirma();
   else if (a === 'pdfci') abrirPdf('ci', 0, S.firmado.id);
-  else if (a === 'pdfleer') { S.lectura = true; abrirLectura(); }
+  else if (a === 'pdfleer') abrirLectura();
   else if (a === 'compartir') entregarPdf(true);
   else if (a === 'guardar') entregarPdf(false);
   else if (a === 'otrafoto') elegirFoto();
   else if (a === 'usarlogo') usarLogo();
   else if (a === 'guardarcons') guardarConsultorio();
-  else if (a === 'olvidar') { guardar(paseKey(), null); perderConexion('Equipo olvidado: la próxima vez pedirá la contraseña.'); }
+  else if (a === 'olvidar') olvidarEquipo();
   else if (a === 'desconectar') perderConexion('Desconectado. El equipo queda libre para otro celular.');
   else if (a === 'simfirma') S.eq.simularFirma();
   else if (a === 'simcancelar') S.eq.simularCancelar();
@@ -555,15 +567,22 @@ function abrirLectura() {
   S.pdf = {hojas: paginar(docCI({...base, ci: {fecha: `${a.f} · ${a.h}`, consultorio: S.cons.nombre}, firma: ''}), base), titulo: 'Autorización (para leer)', nombre: 'Autorizacion.pdf', quien: S.nuevo.nombre};
   pintar();
 }
+async function olvidarEquipo() {
+  const pase = leer(paseKey());
+  if (pase) { try { await S.eq.pedir({t: 'olvidar', pase}, 8000); } catch (_) { /* el pase igual se borra aquí */ } }
+  guardar(paseKey(), null);
+  perderConexion('Equipo olvidado: la próxima vez pedirá la contraseña.');
+}
 async function guardarConsultorio() {
-  if (S.enviando) return;
+  if (S.enviando || !S.consLeido) return;
   document.querySelectorAll('[data-cons]').forEach(i => { S.cons[i.dataset.cons] = i.value.trim(); });
   S.enviando = true; pintar();
   try {
-    const r = await S.eq.pedir({t: 'consultorio', ...S.cons});
+    const r = await S.eq.pedir({t: 'consultorio', ...Object.fromEntries(CAMPOS_CONS.map(k => [k, S.cons[k] || '']))});
     S.enviando = false;
     if (r.error) { tostada('El equipo no pudo guardar: revise la micro SD.'); return; }
-    Object.assign(S.cons, r); tostada('Datos del consultorio guardados en el equipo.');
+    for (const k of CAMPOS_CONS) if (typeof r[k] === 'string') S.cons[k] = r[k];
+    tostada('Datos del consultorio guardados en el equipo.');
   } catch (e) { S.enviando = false; tostada('No se pudo guardar. Vuelva a intentar.'); }
 }
 
@@ -576,7 +595,7 @@ function montar() {
     else if (t.dataset.ficha) abrirFicha(+t.dataset.ficha);
     else if (t.dataset.pdf) { const [k, n] = t.dataset.pdf.split(':'); abrirPdf(k, +n); }
     else if (t.dataset.check) { S.checks[+t.dataset.check] = !S.checks[+t.dataset.check]; pintar(); }
-    else accion(t.dataset.act, t);
+    else accion(t.dataset.act);
   });
   cel.addEventListener('input', e => {
     if (e.target.dataset.buscar === undefined) return;

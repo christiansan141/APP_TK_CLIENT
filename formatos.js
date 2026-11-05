@@ -4,7 +4,12 @@
 'use strict';
 
 const COLOR_NIVEL = ['', '#F2C94C', '#F2994A', '#EB5757'];       // leve, moderado, severo
-const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+// Ayudas que usa toda la app (este archivo se carga primero)
+const dos = n => String(n).padStart(2, '0');
+const fechaEquipo = d => `${dos(d.getDate())}/${dos(d.getMonth() + 1)}/${d.getFullYear()} · ${dos(d.getHours())}:${dos(d.getMinutes())}`;   // como guarda el equipo
+const sinTildes = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const logoValido = s => /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(s || '') ? s : '';     // el logo viene del equipo: solo una imagen
 const nv = (c, t) => `<span class="d-nv"><i style="background:${c}"></i>${t}</span>`;
 const pill = si => `<span class="d-pill ${si ? 'd-si' : 'd-no'}">${si ? 'Sí' : 'No'}</span>`;
 const preg = (q, si, cual) => `<div class="d-preg"><div><span class="q">${esc(q)}</span>${cual ? `<span class="cual">¿Cuál? ${esc(cual)}</span>` : ''}</div>${pill(si)}</div>`;
@@ -16,14 +21,14 @@ const partesFecha = f => { const [d, h] = String(f || '').split(' · '); return 
 const claveFecha = f => { const m = /^(\d\d)\/(\d\d)\/(\d{4})(?: · (\d\d):(\d\d))?/.exec(f || ''); return m ? m[3] + m[2] + m[1] + (m[4] || '00') + (m[5] || '00') : ''; };
 
 function logoHtml(d) {
-  return d.logo ? `<img src="${d.logo}" alt="Logo">`
+  return logoValido(d.logo) ? `<img src="${logoValido(d.logo)}" alt="Logo">`
     : `<div style="width:100%;height:100%;display:grid;place-items:center;font-size:13px;font-weight:700;color:#9A98BC;text-align:center;line-height:1.2">${esc(d.cons.nombre || 'Logo del consultorio')}</div>`;
 }
 function cabDoc(d, eq, titulo, tags, datos) {
   const c = d.cons;
   return `<div class="d-cab"><div class="d-logo con">${logoHtml(d)}</div><div class="d-cons"><b>${esc(c.nombre)}</b>${esc(c.prestador)}${c.nit ? ' · NIT ' + esc(c.nit) : ''}<br>${c.tel ? 'Tel. ' + esc(c.tel) : ''}${c.tel && c.correo ? ' · ' : ''}${esc(c.correo)}</div></div>
   <div class="d-tit"><div style="position:relative;z-index:1"><div class="d-eq">SKIN TRANSDERM PLUS+ · ${eq}</div><h1>${titulo}</h1></div><div class="d-tags">${tags.map(t => `<span class="d-tag">${t}</span>`).join('')}</div></div>
-  <div class="d-datos">${datos.map(([e, v]) => `<div><span class="d-eti">${e}</span><b>${esc(v)}</b></div>`).join('')}</div>`;
+  <div class="d-datos" style="grid-template-columns:repeat(${datos.length + 1},minmax(0,1fr))">${[...datos, ['Responsable', c.prestador || '—']].map(([e, v]) => `<div><span class="d-eti">${e}</span><b>${esc(v)}</b></div>`).join('')}</div>`;
 }
 const pieDoc = (d, n) => `<div class="d-pie"><span>SKIN TRANSDERM PLUS+ · documento generado por TK_APP · los datos permanecen en el equipo</span><span>${registro(d.u.id)} · ${n}</span></div>`;
 
@@ -31,25 +36,28 @@ const pieDoc = (d, n) => `<div class="d-pie"><span>SKIN TRANSDERM PLUS+ · docum
 function firmaSvg(texto, w = 300, h = 80) {
   const trazos = String(texto || '').split('\n').slice(1).map(l => l.trim().split(/\s+/).filter(Boolean).map(p => p.split(',').map(Number))).filter(t => t.length && !t.some(p => p.some(isNaN)));
   if (!trazos.length) return `<svg width="${w}" height="${h}"></svg>`;
-  if (/300x80/.test(String(texto).split('\n')[0])) {       // firmada en TK_APP: ya viene ajustada al recuadro, va tal cual
-    const d = trazos.map(t => 'M' + (t.length === 1 ? [t[0], [t[0][0] + .3, t[0][1]]] : t).map(([x, y]) => `${x} ${y}`).join('L')).join('');
-    return `<svg width="${w}" height="${h}" viewBox="0 0 300 80" fill="none" stroke="#2E2B7A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
-  }
-  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-  for (const t of trazos) for (const [x, y] of t) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
-  const m = 4, k = Math.min((w - 2 * m) / Math.max(1, x1 - x0), (h - 2 * m) / Math.max(1, y1 - y0));
-  const ox = m + ((w - 2 * m) - (x1 - x0) * k) / 2, oy = m + ((h - 2 * m) - (y1 - y0) * k) / 2;
-  const d = trazos.map(t => 'M' + (t.length === 1 ? [t[0], [t[0][0] + .3, t[0][1]]] : t).map(([x, y]) => `${(ox + (x - x0) * k).toFixed(1)} ${(oy + (y - y0) * k).toFixed(1)}`).join('L')).join('');
-  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" fill="none" stroke="#2E2B7A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+  const svg = (vb, d) => `<svg width="${w}" height="${h}" viewBox="${vb}" fill="none" stroke="#2E2B7A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+  // Firmada en TK_APP («firma app 300x80»): ya viene encuadrada en el ajuste y va tal cual; firmada en la pantalla: se encuadra
+  if (/300x80/.test(String(texto).split('\n')[0])) return svg('0 0 300 80', trazosAPath(trazos));
+  const b = cajaTrazos(trazos), m = 4, k = Math.min((w - 2 * m) / b.w, (h - 2 * m) / b.h);
+  const ox = m + ((w - 2 * m) - b.w * k) / 2, oy = m + ((h - 2 * m) - b.h * k) / 2;
+  return svg(`0 0 ${w} ${h}`, trazosAPath(trazos.map(t => t.map(([x, y]) => [ox + (x - b.x0) * k, oy + (y - b.y0) * k]))));
 }
+// La caja de unos trazos y su trazo SVG (también los usa la firma de la app)
+function cajaTrazos(tr) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (const t of tr) for (const [x, y] of t) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  return {x0, y0, w: Math.max(4, x1 - x0), h: Math.max(4, y1 - y0)};
+}
+const trazosAPath = tr => tr.filter(t => t.length).map(t => 'M' + (t.length === 1 ? [t[0], [t[0][0] + .3, t[0][1]]] : t).map(([x, y]) => (+x).toFixed(1) + ' ' + (+y).toFixed(1)).join('L')).join('');
 
 // ---- Autorización (CI) ----------------------------------------------------------------------------------------------------
 // d: {u: {id, nombre, cc}, ci: {fecha, medio, consultorio}, firma: texto de firma.sig, cons, logo}
 function docCI(d) {
-  const c = d.cons, n = esc(d.u.nombre), cc = conPuntos(d.u.cc), f = partesFecha(d.ci && d.ci.fecha);
+  const c = d.cons, n = esc(d.u.nombre), cc = esc(conPuntos(d.u.cc)), f = partesFecha(d.ci && d.ci.fecha);
   const num = (k, t) => `<p class="num"><span class="n">${k}</span><span>${t}</span></p>`;
   return cabDoc(d, 'AUTORIZACIÓN', 'Autorización para el tratamiento de datos personales y aceptación de las condiciones de uso del equipo', [registro(d.u.id)],
-    [['Titular', d.u.nombre], ['C.C.', cc], ['Fecha y hora', f.todo], ['Consultorio', (d.ci && d.ci.consultorio) || c.nombre]]) +
+    [['Titular', d.u.nombre], ['C.C.', conPuntos(d.u.cc)], ['Fecha y hora', f.todo], ['Consultorio', (d.ci && d.ci.consultorio) || c.nombre]]) +
   `<div class="d-legal"><p>Yo, ${n}, mayor de edad, identificado(a) con cédula de ciudadanía No. ${cc}, en calidad de titular de los datos personales (en adelante, el «Titular»), declaro que he leído y comprendido el contenido del presente documento y, en consecuencia, otorgo la autorización y efectúo las declaraciones que se indican a continuación.</p>
   ${h2(1, 'Definiciones')}<p>Para efectos del presente documento se entiende por:</p>
   ${num('1.1.', `<b>Responsable:</b> ${esc(c.prestador)}, identificado(a) con NIT ${esc(c.nit)}, titular del establecimiento ${esc(c.nombre)}, quien decide sobre el tratamiento de los datos personales del Titular.`)}
@@ -71,7 +79,7 @@ function docCI(d) {
   ${num('8.6.', 'Conoce que el Equipo genera un registro técnico de su funcionamiento que incluye fecha, protocolo, parámetros y duración de cada sesión. Dicho registro no contiene el nombre ni el número de identificación del Titular, no permite su identificación y se utiliza con fines de calidad, mantenimiento y tecnovigilancia.')}
   ${num('8.7.', 'Conoce que el presente documento no sustituye el consentimiento informado del procedimiento ni la historia clínica que, en su caso, deba diligenciar el Responsable.')}
   ${h2(9, 'Aceptación')}<p>En constancia de lo anterior, el Titular manifiesta que la presente autorización ha sido otorgada de manera libre, previa, expresa e informada, que comprende el tratamiento de sus datos sensibles, y que acepta las condiciones de uso del Equipo. El presente documento se firma en la pantalla del equipo.</p>
-  <div class="d-firma"><div><div class="d-trazo">${firmaSvg(d.firma)}</div><div class="d-linea">Firma del Titular</div></div><div><p>Nombre: ${n}</p><p>C.C. No.: ${cc}</p><p>Fecha: ${f.f} &nbsp; Hora: ${f.h}</p></div></div></div>` + pieDoc(d, '');
+  <div class="d-firma"><div><div class="d-trazo">${firmaSvg(d.firma)}</div><div class="d-linea">Firma del Titular</div></div><div><p>Nombre: ${n}</p><p>C.C. No.: ${cc}</p><p>Fecha: ${esc(f.f)} &nbsp; Hora: ${esc(f.h)}</p></div></div></div>` + pieDoc(d, '');
 }
 
 // ---- Valoraciones ---------------------------------------------------------------------------------------------------------
@@ -184,10 +192,9 @@ function docHistorial(d) {
   const fechas = filas.map(x => x.k).filter(Boolean).sort();
   const deClave = k => k ? `${k.slice(6, 8)}/${k.slice(4, 6)}/${k.slice(0, 4)}` : '—';
   const tituloVal = v => v.clase === 'corporal' ? `Valoración corporal · ${CATALOGO.mapas[defValoracion(v).mapa].titulo}` : `Valoración facial ${v.tipo === 'seguimiento' ? 'de seguimiento' : 'inicial'}`;
-  const ahora = new Date(), dos = n => String(n).padStart(2, '0');
   return cabDoc(d, 'HISTORIAL', 'Historial de sesiones', [`${d.sesiones.length} ${d.sesiones.length === 1 ? 'sesión' : 'sesiones'} · ${d.vals.length} ${d.vals.length === 1 ? 'valoración' : 'valoraciones'}`, registro(d.u.id)],
     [['Usuario', d.u.nombre], ['C.C.', conPuntos(d.u.cc)], ['Periodo', fechas.length ? `${deClave(fechas[0])} a ${deClave(fechas[fechas.length - 1])}` : '—'],
-     ['Generado el', `${dos(ahora.getDate())}/${dos(ahora.getMonth() + 1)}/${ahora.getFullYear()} · ${dos(ahora.getHours())}:${dos(ahora.getMinutes())}`]]) +
+     ['Generado el', fechaEquipo(new Date())]]) +
   h2(1, 'Resumen') + `<table><tr><th>N.º</th><th>Fecha y hora</th><th>Protocolo o valoración</th><th>Duración</th><th>Estado</th></tr>
     ${filas.map(x => x.val ? `<tr><td style="color:#9A98BC">—</td><td>${esc(x.val.v.fecha)}</td><td colspan="3"><span class="d-nv"><i style="background:#fff;box-shadow:inset 0 0 0 2px #3466AE"></i>${tituloVal(x.val.v)}</span></td></tr>`
       : `<tr><td style="width:7%;font-weight:700">${x.ses.n}</td><td style="width:22%">${esc(x.ses.s.fecha)}</td><td>${nv(colorProtocolo(x.ses.s), esc(x.ses.s.protocolo))}</td><td style="width:20%">${mmss(x.ses.s.real_s)} de ${mmss(x.ses.s.programado_s)} min</td><td style="width:16%">${estadoPill(x.ses.s.estado)}</td></tr>`).join('') || '<tr><td colspan="5" class="d-nota">Sin sesiones ni valoraciones.</td></tr>'}</table>` +
