@@ -62,7 +62,7 @@ function docCI(d) {
   ${h2(1, 'Definiciones')}<p>Para efectos del presente documento se entiende por:</p>
   ${num('1.1.', `<b>Responsable:</b> ${esc(c.prestador)}, identificado(a) con NIT ${esc(c.nit)}, titular del establecimiento ${esc(c.nombre)}, quien decide sobre el tratamiento de los datos personales del Titular.`)}
   ${num('1.2.', '<b>Fabricante:</b> RPI Estética S.A.S., fabricante del Equipo, comercializado bajo la marca TK.')}
-  ${num('1.3.', '<b>Equipo:</b> el dispositivo de estética facial SKIN TRANSDERM PLUS+, con registro sanitario INVIMA [POR DEFINIR].')}
+  ${num('1.3.', '<b>Equipo:</b> el dispositivo de estética facial SKIN TRANSDERM PLUS+, con registro sanitario INVIMA 2023DM-0026617.')}
   ${num('1.4.', '<b>Profesional:</b> la persona capacitada designada por el Responsable para operar el Equipo.')}
   ${h2(2, 'Objeto')}<p>Mediante el presente documento el Titular autoriza al Responsable para realizar el tratamiento de sus datos personales en los términos de la Ley 1581 de 2012 y sus decretos reglamentarios, y declara conocer y aceptar las condiciones de uso del Equipo descritas en el numeral 8.</p>
   ${h2(3, 'Responsable del tratamiento y posición del Fabricante')}<p>El Responsable del tratamiento de los datos personales del Titular es ${esc(c.prestador)}, quien podrá ser contactado a través del correo electrónico ${esc(c.correo)} o del teléfono ${esc(c.tel)}.</p><p>El Fabricante no recibe, no consulta, no almacena ni tiene acceso a los datos personales del Titular, y no ostenta la calidad de Responsable ni de Encargado del tratamiento en los términos de la Ley 1581 de 2012.</p>

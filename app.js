@@ -242,40 +242,48 @@ function elegirFoto() {
   inp.onchange = () => {
     const f = inp.files[0]; if (!f) return;
     const r = new FileReader();
-    r.onload = () => { const img = new Image(); img.onload = () => { S.rec = {img, src: r.result, w: img.naturalWidth, h: img.naturalHeight}; S.rec.z = S.rec.z0 = Math.max(250 / S.rec.w, 100 / S.rec.h); S.rec.x = (250 - S.rec.w * S.rec.z) / 2; S.rec.y = (100 - S.rec.h * S.rec.z) / 2; S.p = 'logo'; pintar(); }; img.src = r.result; };
+    r.onload = () => { const img = new Image(); img.onload = () => { const R = S.rec = {img, src: r.result, w: img.naturalWidth, h: img.naturalHeight};
+      // Empieza con la foto entera dentro del recuadro (fondo blanco alrededor); se puede alejar un poco más o acercar hasta 4 veces lo que lo llena
+      const entera = Math.min(250 / R.w, 100 / R.h), llena = Math.max(250 / R.w, 100 / R.h);
+      Object.assign(R, {zMin: entera * .5, zMax: llena * 4, z: entera}); R.x = (250 - R.w * R.z) / 2; R.y = (100 - R.h * R.z) / 2; S.p = 'logo'; pintar(); }; img.src = r.result; };
     r.readAsDataURL(f);
   };
   inp.click();
 }
 function pantallaLogo() {
   if (!S.rec) return `<div class="tarj" style="text-align:center"><p class="sub">Elija una foto del celular.</p><button class="btn pri" data-act="otrafoto">Elegir foto</button></div>`;
-  return `<div class="tarj"><span class="eti2">Arrastre la foto y acerque</span><div class="sub" style="margin:2px 0 10px">Lo que queda dentro del recuadro es el logo de todos los PDF (45 × 18 mm).</div>
+  return `<div class="tarj"><span class="eti2">Arrastre la foto, acerque o aleje</span><div class="sub" style="margin:2px 0 10px">Lo que queda dentro del recuadro es el logo de todos los PDF (45 × 18 mm). Si la aleja, el resto queda en blanco.</div>
       <div data-recorte style="position:relative;height:200px;margin:0 -14px;overflow:hidden;background:#16152C;touch-action:none;cursor:grab">
+        <div data-blanco style="position:absolute;top:50px;width:250px;height:100px;background:#fff;border-radius:4px"></div>
         <img data-foto src="${S.rec.src}" draggable="false" style="position:absolute;max-width:none;user-select:none" alt="">
         <div data-marco style="position:absolute;top:50px;width:250px;height:100px;border:2px solid #fff;border-radius:4px;box-shadow:0 0 0 600px rgba(22,21,44,.55);pointer-events:none"></div></div>
-      <div style="display:flex;align-items:center;gap:10px;margin:12px 0 4px"><span class="sub">−</span><input data-zoom type="range" min="100" max="400" value="100" style="flex:1;accent-color:var(--azul)"><span class="sub">+</span></div></div>
+      <div style="display:flex;align-items:center;gap:10px;margin:12px 0 4px"><span class="sub">−</span><input data-zoom type="range" min="0" max="1000" value="0" style="flex:1;accent-color:var(--azul)"><span class="sub">+</span></div></div>
     <div class="tarj"><span class="eti2">Así sale en el PDF</span>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:10px;border-radius:12px;background:#fff;box-shadow:inset 0 0 0 1px var(--borde)">
+      <div class="papel" style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:10px;border-radius:12px;background:#fff;box-shadow:inset 0 0 0 1px var(--borde)">
         <canvas data-vista width="${LOGO_W}" height="${LOGO_H}" style="width:120px;height:48px"></canvas><div style="text-align:right;font-size:9px;color:var(--tinta2);line-height:1.4"><b style="font-size:11px;color:var(--tinta)">${esc(S.cons.nombre)}</b><br>${esc(S.cons.prestador)}</div></div></div>
     <div style="display:flex;gap:10px;margin:0 14px 16px"><button class="btn sec" data-act="otrafoto">Otra foto</button><button class="btn pri" data-act="usarlogo" ${S.enviando ? 'disabled' : ''}>${S.enviando ? 'Enviando…' : 'Usar este recorte'}</button></div>`;
 }
 function prepararRecorte(cel) {
   const R = S.rec, area = cel.querySelector('[data-recorte]'), img = cel.querySelector('[data-foto]'), zoom = cel.querySelector('[data-zoom]'), vista = cel.querySelector('[data-vista]');
   const mx = (area.offsetWidth - 250) / 2;
-  cel.querySelector('[data-marco]').style.left = mx + 'px';
+  cel.querySelector('[data-marco]').style.left = cel.querySelector('[data-blanco]').style.left = mx + 'px';
+  // la barra va en escala logarítmica entre lo más lejos y lo más cerca: el mismo paso se siente igual en todo el recorrido
+  const aZoom = v => R.zMin * Math.pow(R.zMax / R.zMin, v / 1000), deZoom = z => Math.round(Math.log(z / R.zMin) / Math.log(R.zMax / R.zMin) * 1000);
+  // si la foto es más chica que el recuadro se mueve dentro de él; si es más grande, siempre lo cubre por ese lado
+  const tope = (v, tam, marco) => tam <= marco ? Math.max(0, Math.min(marco - tam, v)) : Math.min(0, Math.max(marco - tam, v));
   const g = vista.getContext('2d');
   const aplicar = () => {
-    R.x = Math.min(0, Math.max(250 - R.w * R.z, R.x)); R.y = Math.min(0, Math.max(100 - R.h * R.z, R.y));
+    R.x = tope(R.x, R.w * R.z, 250); R.y = tope(R.y, R.h * R.z, 100);
     Object.assign(img.style, {left: mx + R.x + 'px', top: 50 + R.y + 'px', width: R.w * R.z + 'px', height: R.h * R.z + 'px'});
     g.fillStyle = '#fff'; g.fillRect(0, 0, LOGO_W, LOGO_H);
     g.drawImage(R.img, R.x * 2, R.y * 2, R.w * R.z * 2, R.h * R.z * 2);
-    zoom.value = Math.round(R.z / R.z0 * 100);
+    zoom.value = deZoom(R.z);
   };
   let ant = null;
   area.addEventListener('pointerdown', e => { ant = [e.clientX, e.clientY]; try { area.setPointerCapture(e.pointerId); } catch (_) { /* nada */ } });
   area.addEventListener('pointermove', e => { if (!ant) return; R.x += e.clientX - ant[0]; R.y += e.clientY - ant[1]; ant = [e.clientX, e.clientY]; aplicar(); });
   area.addEventListener('pointerup', () => { ant = null; });
-  zoom.addEventListener('input', () => { const z = zoom.value / 100 * R.z0, cx = (125 - R.x) / R.z, cy = (50 - R.y) / R.z; R.z = z; R.x = 125 - cx * z; R.y = 50 - cy * z; aplicar(); });
+  zoom.addEventListener('input', () => { const z = aZoom(+zoom.value), cx = (125 - R.x) / R.z, cy = (50 - R.y) / R.z; R.z = z; R.x = 125 - cx * z; R.y = 50 - cy * z; aplicar(); });
   aplicar();
   S._logoCanvas = vista;
 }
@@ -469,7 +477,7 @@ function pantallaFirma() {
       <div style="width:76px;height:76px;border-radius:50%;margin:0 auto 14px;background:var(--verde);display:grid;place-items:center;color:#fff;box-shadow:0 12px 26px rgba(46,143,102,.35)">${ic('check', 38, 3)}</div>
       <h3 style="margin:0 0 6px;font-size:18px">Firma guardada en el equipo</h3><p class="sub" style="margin:0 0 18px">${esc(S.nuevo.nombre)} · ${S.firmado.f} · ${S.firmado.h}<br>El equipo ya siguió a la valoración inicial.</p>
       <button class="btn pri" data-act="pdfci">${ic('doc', 18)}Ver la autorización en PDF</button><div style="height:10px"></div><button class="btn sec" data-go="inicio">Listo</button></div>`;
-  if (!S.pend) return `<div style="text-align:center;padding:40px 26px"><div class="ico" style="width:64px;height:64px;border-radius:20px;margin:0 auto 12px;background:#fff;display:grid;place-items:center;color:var(--tinta3)">${ic('pen', 30)}</div>
+  if (!S.pend) return `<div style="text-align:center;padding:40px 26px"><div class="ico" style="width:64px;height:64px;border-radius:20px;margin:0 auto 12px;background:var(--carta);display:grid;place-items:center;color:var(--tinta3)">${ic('pen', 30)}</div>
       <h3 style="margin:0 0 6px;font-size:16px">Nada que firmar</h3><p class="sub">La firma se pide desde el equipo: Usuario nuevo → Firmar en la app.</p></div>`;
   const pasos = `<div class="pasos">${[0, 1, 2].map(i => `<i class="${i <= Math.min(2, S.firmaPaso) ? 'on' : ''}"></i>`).join('')}</div>`;
   if (S.firmaPaso === 0) return `${pasos}<div class="tarj" style="text-align:center;padding:22px 16px"><span class="eti2">Paso 1 de 3 · ¿Es usted?</span><div style="height:14px"></div>
@@ -544,10 +552,43 @@ function cuerpo() {
 function marco() {      // arriba la barra de A (marca y conexión); debajo el paso a paso de C
   const tst = S.toast ? `<div class="tostada">${ic(S.toastError ? 'alerta' : 'check', 18, 2.6)}<div>${S.toast}</div></div>` : '';
   const barra = `<div class="barra"><div class="marca-app"><div class="lg">${LOGO_TK}</div><div><b>TK_APP</b><small>INGENIERÍA PARA LA ESTÉTICA${S.prueba ? ' · EQUIPO DE PRUEBA' : ''}</small></div></div>
-      <div class="conx ${S.con ? 'si' : ''}" ${S.con ? '' : 'data-go="conectar"'}><span class="pt"></span>${S.con ? `${esc(S.eq.serie)} conectado` : S.reconectando ? 'Reconectando…' : 'Sin equipo conectado'}<span class="der">${S.con ? (S.hora ? 'Hora ' + S.hora.h : 'Bluetooth') : S.reconectando ? '' : 'Toque para conectar'}</span></div></div>`;
+      <div class="conx ${S.con ? 'si' : ''}" ${S.con ? '' : 'data-go="conectar"'}><span class="pt"></span>${S.con ? `${esc(S.eq.serie)} conectado` : S.reconectando ? 'Reconectando…' : 'Sin equipo conectado'}<span class="der">${S.con ? (S.hora ? 'Hora ' + ahora().h : 'Bluetooth') : S.reconectando ? '' : 'Toque para conectar'}</span></div></div>`;
   const volver = !['inicio', 'conectar'].includes(S.p) ? `<button class="volver" data-act="atras">${ic('back', 16)}${['pdf', 'logo', 'ficha'].includes(S.p) ? 'Volver' : S.p === 'clave' ? 'Cancelar' : 'Inicio'}</button>` : '';
   const titulo = S.p === 'inicio' ? `<div class="hola-t"><b>${esc(S.cons.nombre) || 'TK_APP'}</b><small>¿Qué quiere hacer?</small></div>` : S.p === 'conectar' || S.p === 'clave' ? '' : `<h2>${TITULOS[S.p]}</h2>`;
   return `<div class="app vA vF">${barra}<div class="top">${volver}${titulo}</div><div class="cuerpo">${cuerpo()}</div>${S.lienzoTotal ? capaFirma() : ''}${tst}</div>`;
+}
+// ---- animación de inicio (propuesta C · firma, elegida el 06/11/2026) --------------------------------------------------------
+// Una pluma de luz traza la curva TK como una firma, la T y la K suben detrás y sale «TK_APP». Unos 3 s; tocar la pantalla
+// la salta. Con «reducir movimiento» del celular solo aparece y se va.
+const MARCA_T = '246.71 639.26 246.71 143.38 50.36 143.38 50.36 0 622.95 0 622.95 143.38 427.52 143.38 427.52 639.26 246.71 639.26';
+const MARCA_K = '908.96 695.6 634.65 339.57 894.35 56.34 696.18 56.34 421.3 351.31 421.3 564.81 515.83 463.52 698.92 695.6 908.96 695.6';
+const MARCA_FIRMA = 'M214,346 C120,392 64,458 64,530 C64,660 240,766 463,766 C560,766 645,746 712,711';   // la curva TK como un trazo
+function inicioAnimado() {
+  const quieto = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const el = document.createElement('div');
+  el.className = 'inicio-tk' + (quieto ? ' quieto' : '');
+  el.innerHTML = `<div class="it-centro"><svg class="it-marca" viewBox="0 -20 930 760"><defs>
+    <linearGradient id="itTrazo" x1="0" x2="1"><stop offset="0" stop-color="#9CC0F5"/><stop offset="1" stop-color="#5BE0FF"/></linearGradient>
+    <filter id="itLuz" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14"/></filter></defs>
+    <g class="it-letras"><polygon fill="#fff" points="${MARCA_T}"/><g transform="translate(-17.54 -56.34)"><polygon fill="#fff" points="${MARCA_K}"/></g></g>
+    <g transform="translate(-17.54 -56.34)"><path class="it-trazo" d="${MARCA_FIRMA}" fill="none" stroke="url(#itTrazo)" stroke-width="34" stroke-linecap="round"/>
+    ${quieto ? '' : `<g opacity="0"><circle r="26" fill="#5BE0FF" filter="url(#itLuz)"/><circle r="11" fill="#fff"/>
+      <animateMotion begin="0.3s" dur="1.1s" fill="freeze" path="${MARCA_FIRMA}" calcMode="spline" keyPoints="0;1" keyTimes="0;1" keySplines=".55 .05 .35 1"/>
+      <animate attributeName="opacity" begin="0.3s" dur="1.2s" fill="freeze" values="1;1;0" keyTimes="0;.85;1"/></g>`}</g></svg>
+    <div class="it-nombre"><b>TK_APP</b><span>INGENIERÍA PARA LA ESTÉTICA</span></div></div>`;
+  document.body.appendChild(el);
+  let fin = false;
+  const cerrar = () => { if (fin) return; fin = true; el.classList.add('sale'); setTimeout(() => el.remove(), 450); };
+  el.addEventListener('pointerdown', cerrar);
+  setTimeout(cerrar, quieto ? 900 : 3000);
+}
+
+// Modo noche de 6 p. m. a 6 a. m. con la hora del celular; de día, modo día. Se revisa cada minuto.
+function temaPorHora() {
+  const h = new Date().getHours(), noche = h >= 18 || h < 6;
+  document.documentElement.classList.toggle('noche', noche);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = noche ? '#100F26' : '#22204F';
 }
 function pintar() {
   const cel = document.getElementById('cel-C');
@@ -658,11 +699,13 @@ function montar() {
   const ancho = () => cel.classList.toggle('ancha', innerWidth > 640);
   addEventListener('resize', () => { ancho(); if (S.p === 'pdf' || S.aj) pintar(); });
   ancho();
+  temaPorHora();
+  setInterval(temaPorHora, 60000);
   setInterval(() => { if (S.con && S.eq) S.eq.pedir({t: 'ping'}, 8000).catch(() => {}); }, 10000);   // señal de vida: el equipo suelta a los 25 s de silencio
   // La hora del equipo se repasa cada 5 min (corrige lo que se adelante o atrase su reloj si queda encendido todo el día)
   // y la tarjeta de Inicio se refresca cada minuto para mostrar la hora de ahora, no la de cuando se conectó
   setInterval(() => { if (S.con && S.eq) S.eq.pedir({t: 'hora', fecha: isoLocal()}, 8000).then(() => { S.hora = ahora(); }).catch(() => {}); }, 300000);
-  setInterval(() => { if (S.con && S.p === 'inicio') pintar(); }, 60000);
+  setInterval(() => { if (S.con && S.p === 'inicio') pintar(); }, 60000);   // solo Inicio: en las otras se escribe o se lee
   pintar();
   if (document.fonts) document.fonts.ready.then(pintar);
 }
@@ -680,4 +723,5 @@ function montar() {
 // iPhone que ya abrió la app en Bluefy: al escanear el QR o tocar el NFC (abre Safari), salta directo a Bluefy
 if (ENLACE_BLUEFY && esIphone() && !EquipoBle.disponible() && leer(CON_BLUEFY)) location.href = ENLACE_BLUEFY(DIR_APP);
 montar();
+inicioAnimado();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
