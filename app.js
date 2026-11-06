@@ -2,7 +2,7 @@
 // Datos: los pide al equipo cada vez (equipo.js); no guarda datos de usuarios. Solo recuerda el pase de confianza de cada equipo.
 'use strict';
 
-const VERSION_APP = '1.0 · 05/11/2026';
+const VERSION_APP = '1.1 · 06/11/2026';   // súbala en cada publicación (el equipo la recibe en «hola»)
 const URL_DOCUMENTOS = 'https://drive.google.com/drive/folders/1FRbFGo9VDIqJsnvl2BH4vQDcxtFaq83v';
 const S = {p: 'conectar', con: false, eq: null, buscando: false, hora: null, fw: '', clave: '', claveMal: false, quedan: 3, finEspera: 0,
   pend: false, nuevo: null, firmaPaso: 0, checks: [false, false], lienzoTotal: false, trazosTmp: [], trazos: [], aj: null, firmado: null, enviando: false,
@@ -11,7 +11,7 @@ const CAMPOS_CONS = ['nombre', 'prestador', 'nit', 'tel', 'correo'];
 
 // ---- utilidades ---------------------------------------------------------------------------------------------------------------
 function ahora() { const [f, h] = fechaEquipo(new Date()).split(' · '); return {f, h}; }
-const isoLocal = () => { const d = new Date(); return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}T${dos(d.getHours())}:${dos(d.getMinutes())}`; };
+const isoLocal = () => { const d = new Date(); return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}T${dos(d.getHours())}:${dos(d.getMinutes())}:${dos(d.getSeconds())}`; };
 const iniciales = n => String(n || '').split(' ').filter(Boolean).slice(0, 2).map(x => x[0]).join('');
 const guardar = (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (_) { /* navegador sin memoria */ } };
 const leer = k => { try { return localStorage.getItem(k); } catch (_) { return null; } };
@@ -54,13 +54,14 @@ async function buscarEquipo() {
     const r = await eq.pedir({t: 'hola', fecha: isoLocal(), pase: leer(paseKey()) || '', app: VERSION_APP});
     S.fw = r.fw || ''; S.buscando = false;
     if (r.acceso === 'ok') return entrar(false);
+    if (r.error) return perderConexion(r.error === 'ejecutando' ? 'El equipo está en plena sesión. Conéctese cuando termine.' : 'El equipo no aceptó la conexión. Vuelva a intentar.');
     S.clave = ''; S.claveMal = false; S.finEspera = r.espera ? Date.now() + r.espera * 1000 : 0; S.p = 'clave'; pintar(); relojEspera();
-  } catch (e) { S.buscando = false; eq.desconectar(); tostada('El equipo no respondió. Vuelva a intentar.'); }
+  } catch (e) { S.buscando = false; perderConexion('El equipo no respondió. Vuelva a intentar.'); }   // sin reconexión: nadie entró
 }
 async function entrar(conClave) {
-  S.con = true; S.buscando = false; S.hora = ahora(); S.p = 'inicio'; S.clave = '';
+  S.con = true; S.buscando = false; S.reconectando = false; S.hora = ahora(); S.p = 'inicio'; S.clave = '';
   pintar();
-  tostada(`${conClave ? 'Contraseña correcta: este celular queda de confianza. ' : ''}Conectado a ${S.eq.serie}. Fecha y hora enviadas al equipo: <b>${S.hora.f} · ${S.hora.h}</b>`);
+  tostada(`${conClave ? 'Contraseña correcta: este celular queda de confianza. ' : ''}Conectado a ${esc(S.eq.serie)}. Fecha y hora enviadas al equipo: <b>${S.hora.f} · ${S.hora.h}</b>`);
   await leerConsultorio();
   pintar();
 }
@@ -80,17 +81,21 @@ async function leerConsultorio() {
 }
 // Si la conexión se cae (pantalla apagada, Chrome en segundo plano, el celular se alejó), la app vuelve a entrar sola al
 // mismo equipo, sin la lista ni la contraseña, y deja al usuario en la misma pantalla. El equipo reemplaza la conexión
-// muerta a los 25 s de silencio (bluetooth.ino), así que se intenta durante un minuto.
+// muerta a los 25 s de silencio (bluetooth.ino), así que se intenta durante un minuto. S.reconectando guarda el equipo que
+// se está reconectando (no un sí/no): si entretanto se conecta otro, este bucle se retira sin tocar el del otro.
 async function reconectar(eq) {
-  if (S.reconectando) return;
-  S.reconectando = true; S.con = false; S.lienzoTotal = false;
+  if (S.reconectando === eq) return;
+  S.reconectando = eq; S.con = false; S.lienzoTotal = false;
   tostada('Se perdió la conexión con el equipo. Reconectando…', 65000);
-  for (let i = 0; i < 12 && S.eq === eq && S.reconectando; i++) {
+  for (let i = 0; i < 12 && S.eq === eq && S.reconectando === eq; i++) {
     await new Promise(r => setTimeout(r, i ? 5000 : 1500));
-    if (S.eq !== eq || !S.reconectando) return;
+    if (S.eq !== eq || S.reconectando !== eq) return dejarDeReconectar(eq);
     try {
       await eq.reconectar();
       const r = await eq.pedir({t: 'hola', fecha: isoLocal(), pase: leer(paseKey()) || '', app: VERSION_APP}, 8000);
+      // mientras se esperaba, el usuario pudo conectar otro equipo: esta conexión vieja se suelta y no se marca nada
+      if (S.eq !== eq || S.reconectando !== eq) { eq.alCortar = () => {}; eq.desconectar(); return dejarDeReconectar(eq); }
+      if (r.error === 'ejecutando') continue;   // equipo con un programa anterior en plena sesión: se sigue intentando
       if (r.acceso !== 'ok') break;           // el pase ya no vale: hay que entrar con la contraseña
       S.reconectando = false; S.con = true; S.hora = ahora();
       if (S.p === 'conectar' || S.p === 'clave') S.p = 'inicio';
@@ -98,9 +103,12 @@ async function reconectar(eq) {
       return;
     } catch (_) { /* el equipo aún no la suelta: se vuelve a intentar */ }
   }
+  if (S.reconectando !== eq) return;
   S.reconectando = false;
   if (S.eq === eq) perderConexion('No se pudo volver a conectar. Toque «Buscar equipo».');
 }
+// La reconexión de eq termina sin éxito porque hay otro equipo: solo se limpia la marca si sigue siendo la suya
+function dejarDeReconectar(eq) { if (S.reconectando === eq) { S.reconectando = false; pintar(); } }
 function perderConexion(motivo) {
   Object.assign(S, {con: false, p: 'conectar', buscando: false, pend: false, lienzoTotal: false, hora: null, usuarios: null, ficha: null, pdf: null, consLeido: false, reconectando: false});
   if (S.eq) { S.eq.alCortar = () => {}; S.eq.desconectar(); }
@@ -124,6 +132,10 @@ async function teclear(k) {
     S.enviando = false;
     if (r.ok) { guardar(paseKey(), r.pase); return entrar(true); }
     S.clave = '';
+    if (r.error) {                            // no es «contraseña incorrecta»: el equipo no pudo revisarla
+      pintar();
+      return tostada(r.error === 'ejecutando' ? 'El equipo está en plena sesión. Espere a que termine y escriba la contraseña.' : 'El equipo no pudo revisar la contraseña. Vuelva a intentar.', 6000, true);
+    }
     if (r.espera) { S.finEspera = Date.now() + r.espera * 1000; S.claveMal = false; relojEspera(); }
     else { S.claveMal = true; S.quedan = r.quedan; }
     pintar();
@@ -156,6 +168,7 @@ function firmaComoTexto() {
   const A = S.aj;
   return 'firma app 300x80\n' + S.trazos.map(t => t.map(([x, y]) => `${Math.round(x * A.z + A.x)},${Math.round(y * A.z + A.y)}`).join(' ')).join('\n') + '\n';
 }
+const MAX_PUNTOS = 2500;                   // ~11 bytes por punto: 2500 caben de sobra en los 40 000 del equipo
 const firmaSuficiente = () => S.trazosTmp.reduce((n, t) => n + t.length, 0) >= 10;      // como en la pantalla: al menos 10 puntos
 function capaFirma() {
   const mouse = matchMedia('(hover: hover) and (pointer: fine)').matches;
@@ -178,7 +191,13 @@ function prepararFirmaTotal(cel) {
   c.addEventListener('pointermove', e => {
     if (!actual) return;
     const juntos = e.getCoalescedEvents ? e.getCoalescedEvents() : [];          // los puntos intermedios, si el navegador los da
-    for (const ev of (juntos.length ? juntos : [e])) actual.push(punto(ev));
+    // Solo puntos a más de 1,5 px del anterior y hasta MAX_PUNTOS en toda la firma: así el mensaje siempre cabe en el equipo
+    let total = S.trazosTmp.reduce((n, t) => n + t.length, 0);
+    for (const ev of (juntos.length ? juntos : [e])) {
+      const p = punto(ev), u = actual[actual.length - 1];
+      if (total >= MAX_PUNTOS || Math.hypot(p[0] - u[0], p[1] - u[1]) < 1.5) continue;
+      actual.push(p); total++;
+    }
     g.clearRect(0, 0, w, h); S.trazosTmp.forEach(dibujar);
   });
   const soltar = () => { if (!actual) return; actual = null; const b = cel.querySelector('[data-act="ftlisto"]'); if (b) b.disabled = !firmaSuficiente(); };
@@ -230,7 +249,7 @@ async function enviarFirma() {
     S.enviando = false;
     if (!r.ok) { tostada(r.error === 'sd' ? 'El equipo no pudo guardar en la micro SD. Revísela y vuelva a enviar.' : r.error === 'no_pedida' ? 'El equipo ya no está esperando la firma.' : 'El equipo no aceptó la firma.', 6000); return; }
     S.firmado = {id: r.id, ...ahora()}; S.pend = false; S.p = 'firma';
-    tostada(`El equipo confirmó: firma guardada con el registro de ${S.nuevo.nombre}.`);
+    tostada(`El equipo confirmó: firma guardada con el registro de ${esc(S.nuevo.nombre)}.`);
   } catch (e) { S.enviando = false; tostada('No llegó la confirmación del equipo. Revise en el equipo si la firma quedó guardada.', 6500); }
 }
 
@@ -416,14 +435,14 @@ const DIR_APP = location.origin + location.pathname;          // la dirección d
 // Enlace que abre esta app dentro de Bluefy: probado por Christian en su iPhone el 06/11/2026 (Bluefy no lo documenta)
 const ENLACE_BLUEFY = dir => 'bluefy://open?url=' + encodeURIComponent(dir);
 const CON_BLUEFY = 'tkapp-tiene-bluefy';      // este iPhone ya abrió la app en Bluefy: al escanear, salta directo
-function abrirEnBluefy() { if (!ENLACE_BLUEFY) return; guardar(CON_BLUEFY, '1'); location.href = ENLACE_BLUEFY(DIR_APP); }
+function abrirEnBluefy() { guardar(CON_BLUEFY, '1'); location.href = ENLACE_BLUEFY(DIR_APP); }
 const esIphone = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function guiaIphone() {
   return `<div style="padding:4px 0 10px;text-align:center">
     <div class="candado" style="background:linear-gradient(135deg,#25785A,var(--verde))">${ic('bt', 26)}</div>
     <h3 style="margin:10px 0 4px;font-size:18px">En iPhone, TK_APP se abre en Bluefy</h3>
     <p class="sub" style="margin:0 24px 14px">El iPhone no deja usar el Bluetooth del equipo desde Safari ni desde Chrome. Bluefy es un navegador gratuito que sí lo permite.</p></div>
-    ${ENLACE_BLUEFY ? `<div style="padding:0 14px 12px"><button class="btn ver" data-act="bluefy">${ic('bt', 18)}Ya tengo Bluefy: abrir ahí</button></div>` : ''}
+    <div style="padding:0 14px 12px"><button class="btn ver" data-act="bluefy">${ic('bt', 18)}Ya tengo Bluefy: abrir ahí</button></div>
     <div class="tarj"><span class="eti2">Paso 1</span><div style="margin:4px 0 10px;font-weight:600">Instale Bluefy (una sola vez)</div>
       <a class="btn pri" style="text-decoration:none" href="${APP_STORE_BLUEFY}" target="_blank" rel="noopener">Abrir Bluefy en la App Store</a></div>
     <div class="tarj"><span class="eti2">Paso 2</span><div style="margin:4px 0 6px;font-weight:600">Abra Bluefy y pegue esta dirección</div>
@@ -613,7 +632,7 @@ function inicioAnimado() {
       const datos = await (await fetch('inicio.mp3')).arrayBuffer();
       const buf = await new Promise((ok, mal) => ctx.decodeAudioData(datos, ok, mal));
       if (ctx.state !== 'running') await Promise.race([ctx.resume(), new Promise(r => setTimeout(r, 250))]);
-      if (ctx.state !== 'running') return arrancar(null);    // el navegador no deja sonar: en silencio
+      if (ctx.state !== 'running') { ctx.close().catch(() => {}); return arrancar(null); }   // no deja sonar: en silencio
       const fuente = ctx.createBufferSource();
       volumen = ctx.createGain();
       volumen.gain.value = .8;
@@ -758,7 +777,7 @@ function montar() {
 })();
 
 // iPhone que ya abrió la app en Bluefy: al escanear el QR o tocar el NFC (abre Safari), salta directo a Bluefy
-if (ENLACE_BLUEFY && esIphone() && !EquipoBle.disponible() && leer(CON_BLUEFY)) location.href = ENLACE_BLUEFY(DIR_APP);
+if (esIphone() && !EquipoBle.disponible() && leer(CON_BLUEFY)) location.href = ENLACE_BLUEFY(DIR_APP);
 montar();
 inicioAnimado();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});

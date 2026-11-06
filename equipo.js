@@ -62,7 +62,8 @@ class EquipoBle extends EquipoBase {
   // En pedazos de 180 bytes, uno tras otro (el logo ronda los 20 KB)
   enviar(m) {
     const datos = new TextEncoder().encode(JSON.stringify(m) + '\n');
-    this.cola = this.cola.then(async () => {
+    // .catch antes: si un envío falló, los siguientes igual salen (si no, la cola quedaría rechazada hasta reconectar)
+    this.cola = this.cola.catch(() => {}).then(async () => {
       for (let i = 0; i < datos.length; i += 180) {
         const trozo = datos.slice(i, i + 180);
         if (this.rx.writeValueWithResponse) await this.rx.writeValueWithResponse(trozo); else await this.rx.writeValue(trozo);

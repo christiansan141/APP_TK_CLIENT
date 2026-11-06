@@ -302,7 +302,7 @@ html.noche .tarj, html.noche .vF .bal:not(.grande), html.noche .vA .seg, html.no
 html.noche .clave-cajas i{background:var(--carta)}
 html.noche .tarj, html.noche .vF .bal:not(.grande), html.noche .vA .seg, html.noche .teclado button{box-shadow:0 4px 14px rgba(0,0,0,.28)}
 html.noche .vF .bal .ic, html.noche .pdfb, html.noche .teclado button:active{background:var(--carta2);color:#8FB4F0}
-html.noche .btn.sec, html.noche .vF .volver, html.noche .zona-firmar b, html.noche .ft-cab button, html.noche .zoom-f button:not(.anotar),
+html.noche .btn.sec, html.noche .vF .volver, html.noche .zona-firmar b, html.noche .zoom-f button:not(.anotar),
 html.noche .clave-cajas i{color:#B9B6F2}
 html.noche .anotar, html.noche .doc-fila .ico{color:#8FB4F0}
 html.noche .vA .seg button.on{background:var(--azul)}
