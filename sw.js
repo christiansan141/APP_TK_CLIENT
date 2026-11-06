@@ -1,6 +1,6 @@
 // TK_APP · para instalarla y abrirla sin internet. Primero la red (así cada cambio publicado llega de una vez) y, si no hay,
 // lo último guardado. Los datos de usuarios nunca pasan por aquí: viven en el equipo.
-const CACHE = 'tkapp-1.2';
+const CACHE = 'tkapp-1.3';
 const ARCHIVOS = ['./', 'index.html', 'estilos.css', 'catalogo.js', 'imagenes.js', 'formatos.js', 'equipo.js', 'app.js', 'manifest.webmanifest', 'icono-192.png', 'icono-512.png', 'inicio.mp3',
   'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'];
 

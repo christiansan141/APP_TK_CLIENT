@@ -560,7 +560,7 @@ function marco() {      // arriba la barra de A (marca y conexión); debajo el p
 // ---- animación de inicio (propuesta C · firma, elegida el 06/11/2026) --------------------------------------------------------
 // Una pluma de luz traza la curva TK como una firma, la T y la K suben detrás y sale «TK_APP». Unos 4 s; tocar la pantalla
 // la salta. Con «reducir movimiento» del celular solo aparece y se va.
-// Suena «Ola + Impulso» (inicio.mp3, elegido el 06/11/2026): la ola crece con la pluma y rompe en la marca a los 1,4 s.
+// Suena «pi-pi-pi» (inicio.mp3, 06/11/2026): tres notas de marimba a los 1,42 · 1,66 · 1,95 s, cuando suben la T y la K.
 // Los celulares no dejan sonar una página que nadie ha tocado (salvo la app instalada): si se bloquea, va en silencio.
 // Sincronía: el sonido se carga y decodifica primero (Web Audio), se espera a que la intro esté pintada y entonces arrancan
 // juntos sonido, animaciones CSS y la pluma (SMIL) en el mismo cuadro. Si el sonido no llega en 0,8 s, arranca sin él.
