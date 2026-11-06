@@ -321,9 +321,12 @@ html.noche .doc, html.noche .mini-pdf, html.noche .miniatura, html.noche .papel,
 .inicio-tk.sale{opacity:0;pointer-events:none}
 .it-centro{position:absolute;left:0;right:0;top:44%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center}
 .it-marca{width:min(40vw,190px);height:auto;overflow:visible}
-.it-trazo{stroke-dasharray:1200;stroke-dashoffset:1200;animation:itFirma 1.1s .3s cubic-bezier(.55,.05,.35,1) forwards}
-.it-letras{clip-path:inset(100% 0 0 0);animation:itEmerge .7s 1.3s cubic-bezier(.2,.8,.2,1) forwards}
-.it-nombre{margin-top:22px;text-align:center;color:#fff;opacity:0;transform:translateY(10px);animation:itNombre .55s 1.9s ease-out forwards}
+.it-trazo{stroke-dasharray:1200;stroke-dashoffset:1200}
+.inicio-tk.va .it-trazo{animation:itFirma 1.1s .3s cubic-bezier(.55,.05,.35,1) forwards}
+.it-letras{clip-path:inset(100% 0 0 0)}
+.inicio-tk.va .it-letras{animation:itEmerge .7s 1.3s cubic-bezier(.2,.8,.2,1) forwards}
+.it-nombre{margin-top:22px;text-align:center;color:#fff;opacity:0;transform:translateY(10px)}
+.inicio-tk.va .it-nombre{animation:itNombre .55s 1.9s ease-out forwards}
 .it-nombre b{display:block;font-size:28px;font-weight:800;letter-spacing:.02em}
 .it-nombre span{display:block;margin-top:6px;font-size:10px;font-weight:600;letter-spacing:.24em;opacity:.75}
 @keyframes itFirma{to{stroke-dashoffset:0}}

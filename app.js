@@ -561,7 +561,9 @@ function marco() {      // arriba la barra de A (marca y conexión); debajo el p
 // Una pluma de luz traza la curva TK como una firma, la T y la K suben detrás y sale «TK_APP». Unos 3 s; tocar la pantalla
 // la salta. Con «reducir movimiento» del celular solo aparece y se va.
 // Suena «Ola + Impulso» (inicio.mp3, elegido el 06/11/2026): la ola crece con la pluma y rompe en la marca a los 1,4 s.
-// Los celulares no dejan sonar una página que nadie ha tocado: si el navegador lo bloquea, la animación sigue en silencio.
+// Los celulares no dejan sonar una página que nadie ha tocado (salvo la app instalada): si se bloquea, va en silencio.
+// Sincronía: el sonido se carga y decodifica primero (Web Audio), se espera a que la intro esté pintada y entonces arrancan
+// juntos sonido, animaciones CSS y la pluma (SMIL) en el mismo cuadro. Si el sonido no llega en 0,8 s, arranca sin él.
 const MARCA_T = '246.71 639.26 246.71 143.38 50.36 143.38 50.36 0 622.95 0 622.95 143.38 427.52 143.38 427.52 639.26 246.71 639.26';
 const MARCA_K = '908.96 695.6 634.65 339.57 894.35 56.34 696.18 56.34 421.3 351.31 421.3 564.81 515.83 463.52 698.92 695.6 908.96 695.6';
 const MARCA_FIRMA = 'M214,346 C120,392 64,458 64,530 C64,660 240,766 463,766 C560,766 645,746 712,711';   // la curva TK como un trazo
@@ -575,21 +577,48 @@ function inicioAnimado() {
     <g class="it-letras"><polygon fill="#fff" points="${MARCA_T}"/><g transform="translate(-17.54 -56.34)"><polygon fill="#fff" points="${MARCA_K}"/></g></g>
     <g transform="translate(-17.54 -56.34)"><path class="it-trazo" d="${MARCA_FIRMA}" fill="none" stroke="url(#itTrazo)" stroke-width="34" stroke-linecap="round"/>
     ${quieto ? '' : `<g opacity="0"><circle r="26" fill="#5BE0FF" filter="url(#itLuz)"/><circle r="11" fill="#fff"/>
-      <animateMotion begin="0.3s" dur="1.1s" fill="freeze" path="${MARCA_FIRMA}" calcMode="spline" keyPoints="0;1" keyTimes="0;1" keySplines=".55 .05 .35 1"/>
-      <animate attributeName="opacity" begin="0.3s" dur="1.2s" fill="freeze" values="1;1;0" keyTimes="0;.85;1"/></g>`}</g></svg>
+      <animateMotion begin="indefinite" dur="1.1s" fill="freeze" path="${MARCA_FIRMA}" calcMode="spline" keyPoints="0;1" keyTimes="0;1" keySplines=".55 .05 .35 1"/>
+      <animate attributeName="opacity" begin="indefinite" dur="1.2s" fill="freeze" values="1;1;0" keyTimes="0;.85;1"/></g>`}</g></svg>
     <div class="it-nombre"><b>TK_APP</b><span>INGENIERÍA PARA LA ESTÉTICA</span></div></div>`;
   document.body.appendChild(el);
-  const sonido = new Audio('inicio.mp3');
-  sonido.volume = .8;
-  sonido.play().catch(() => {});
-  let fin = false;
+  let fin = false, arrancada = false, ctx = null, volumen = null;
   const cerrar = () => {
     if (fin) return;
     fin = true; el.classList.add('sale'); setTimeout(() => el.remove(), 450);
-    const bajar = setInterval(() => { sonido.volume = Math.max(0, sonido.volume - .1); if (!sonido.volume) { clearInterval(bajar); sonido.pause(); } }, 40);
+    if (volumen) { volumen.gain.setTargetAtTime(0, ctx.currentTime, .08); setTimeout(() => ctx.close().catch(() => {}), 600); }
   };
   el.addEventListener('pointerdown', cerrar);
-  setTimeout(cerrar, quieto ? 900 : 3000);
+  // el próximo cuadro pintado (con respaldo: si la pantalla no pinta, a los 60 ms igual sigue)
+  const cuadro = f => { let hecho = false; const g = () => { if (!hecho) { hecho = true; f(); } }; requestAnimationFrame(g); setTimeout(g, 60); };
+  // arranca todo en el mismo cuadro: la clase «va» suelta las animaciones CSS y la pluma empieza 0,3 s después
+  const arrancar = fuente => {
+    if (arrancada || fin) return;
+    arrancada = true;
+    cuadro(() => {
+      if (fuente) fuente.start();
+      el.classList.add('va');
+      el.querySelectorAll('animateMotion, animate').forEach(a => { try { a.beginElementAt(.3); } catch (_) { /* sin SMIL */ } });
+      setTimeout(cerrar, quieto ? 900 : 3000);
+    });
+  };
+  setTimeout(() => arrancar(null), 800);            // el sonido no llegó: la intro no espera más
+  const Contexto = window.AudioContext || window.webkitAudioContext;
+  if (!Contexto) return arrancar(null);
+  (async () => {
+    try {
+      ctx = new Contexto();
+      const datos = await (await fetch('inicio.mp3')).arrayBuffer();
+      const buf = await new Promise((ok, mal) => ctx.decodeAudioData(datos, ok, mal));
+      if (ctx.state !== 'running') await Promise.race([ctx.resume(), new Promise(r => setTimeout(r, 250))]);
+      if (ctx.state !== 'running') return arrancar(null);    // el navegador no deja sonar: en silencio
+      const fuente = ctx.createBufferSource();
+      volumen = ctx.createGain();
+      volumen.gain.value = .8;
+      fuente.buffer = buf;
+      fuente.connect(volumen).connect(ctx.destination);
+      cuadro(() => arrancar(fuente));                        // un cuadro más: la intro ya está pintada
+    } catch (_) { arrancar(null); }
+  })();
 }
 
 // Modo noche de 6 p. m. a 6 a. m. con la hora del celular; de día, modo día. Se revisa cada minuto.
