@@ -435,6 +435,21 @@ const DIR_APP = location.origin + location.pathname;          // la dirección d
 // Enlace que abre esta app dentro de Bluefy: probado por Christian en su iPhone el 06/11/2026 (Bluefy no lo documenta)
 const ENLACE_BLUEFY = dir => 'bluefy://open?url=' + encodeURIComponent(dir);
 const CON_BLUEFY = 'tkapp-tiene-bluefy';      // este iPhone ya abrió la app en Bluefy: al escanear, salta directo
+// Atajo de iPhone: el enlace de iCloud del atajo «TK_APP» (Atajos → Abrir URL bluefy://open?url=…), hecho por Christian.
+// Con él, la tarjeta de Inicio ofrece dejar TK_APP en la pantalla de inicio del iPhone. Vacío = la tarjeta no sale.
+const ATAJO_ICLOUD = 'https://www.icloud.com/shortcuts/d45eeb06b8834fb69a976a0e4fbb6b0f';   // compartido el 06/11/2026
+const ATAJO_LISTO = 'tkapp-atajo-listo';      // este iPhone ya lo agregó o no lo quiere: no se vuelve a ofrecer
+function tarjetaAtajo() {
+  if (!ATAJO_ICLOUD || !esIphone() || !EquipoBle.disponible() || leer(ATAJO_LISTO)) return '';
+  return `<div class="tarj atajo"><span class="eti2">iPhone · acceso directo</span>
+    <div class="at-tit">Deje TK_APP en su pantalla de inicio</div>
+    <div class="sub">Así la abre con un toque, directo en Bluefy, sin escanear ni buscar el enlace.</div>
+    <ol class="at-pasos"><li>Toque <b>Agregar el atajo</b> y en Atajos toque <b>Agregar atajo</b>.</li>
+      <li>En Atajos, mantenga presionado <b>TK_APP</b> y toque <b>Detalles</b>.</li>
+      <li>Toque <b>Agregar a pantalla de inicio</b> y luego <b>Agregar</b>.</li></ol>
+    <a class="btn pri" style="text-decoration:none" href="${ATAJO_ICLOUD}" target="_blank" rel="noopener">${ic('down', 18)}Agregar el atajo</a>
+    <button class="anotar at-listo" data-act="atajolisto">Ya lo tengo · no mostrar más</button></div>`;
+}
 function abrirEnBluefy() { guardar(CON_BLUEFY, '1'); location.href = ENLACE_BLUEFY(DIR_APP); }
 const esIphone = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function guiaIphone() {
@@ -477,7 +492,7 @@ function pantallaClave() {
     <div class="sub" style="text-align:center;margin:12px 26px 0">Con la contraseña correcta este celular queda <b>de confianza</b>: no se la pide otra vez mientras se conecte al menos cada 5 días.</div>`;
 }
 function pantallaInicio() {
-  return `${horaTarj()}
+  return `${horaTarj()}${tarjetaAtajo()}
     <div class="baldosas">
       ${S.pend ? `<div class="bal grande verde" data-go="firma"><div class="ic">${ic('pen', 22)}</div><div><b>Firmar la autorización</b><span>${esc(S.nuevo.nombre)} espera en el equipo</span></div></div>` : ''}
       <div class="bal grande" data-go="usuarios"><div class="ic">${ic('users', 22)}</div><div><b>Usuarios y PDF</b><span>Buscar, ver la ficha y sacar documentos</span></div></div>
@@ -685,6 +700,7 @@ function accion(a) {
     pintar();
   }
   else if (a === 'bluefy') abrirEnBluefy();
+  else if (a === 'atajolisto') { guardar(ATAJO_LISTO, '1'); pintar(); }
   else if (a === 'copiar') {
     (navigator.clipboard ? navigator.clipboard.writeText(DIR_APP) : Promise.reject()).then(() => tostada('Dirección copiada. Ábrala en Bluefy y péguela arriba.'))
       .catch(() => tostada('Copie a mano esta dirección: ' + esc(DIR_APP), 8000, true));

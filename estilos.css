@@ -336,3 +336,9 @@ html.noche .doc, html.noche .mini-pdf, html.noche .miniatura, html.noche .papel,
 
 /* «Buscar equipo»: el único botón de la pantalla de conexión, grande y centrado */
 .btn.btn-buscar{max-width:320px;height:64px;margin:0 auto;font-size:18px;border-radius:20px;gap:10px}
+
+/* Tarjeta del atajo de iPhone (Inicio, solo en Bluefy) */
+.atajo .at-tit{font-size:16px;font-weight:700;margin:4px 0 2px}
+.at-pasos{margin:10px 0 12px;padding-left:20px;font-size:12.5px;line-height:1.5;color:var(--tinta)}
+.at-pasos li{margin:3px 0}
+.at-listo{display:block;margin:10px auto 0}
