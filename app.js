@@ -567,6 +567,7 @@ function marco() {      // arriba la barra de A (marca y conexión); debajo el p
 const MARCA_T = '246.71 639.26 246.71 143.38 50.36 143.38 50.36 0 622.95 0 622.95 143.38 427.52 143.38 427.52 639.26 246.71 639.26';
 const MARCA_K = '908.96 695.6 634.65 339.57 894.35 56.34 696.18 56.34 421.3 351.31 421.3 564.81 515.83 463.52 698.92 695.6 908.96 695.6';
 const MARCA_FIRMA = 'M214,346 C120,392 64,458 64,530 C64,660 240,766 463,766 C560,766 645,746 712,711';   // la curva TK como un trazo
+const ADELANTO_SONIDO = .2;                       // s que el sonido va antes que la animación (sube si aún se oye tarde)
 function inicioAnimado() {
   const quieto = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const el = document.createElement('div');
@@ -595,10 +596,18 @@ function inicioAnimado() {
     if (arrancada || fin) return;
     arrancada = true;
     cuadro(() => {
-      if (fuente) fuente.start();
-      el.classList.add('va');
-      el.querySelectorAll('animateMotion, animate').forEach(a => { try { a.beginElementAt(.3); } catch (_) { /* sin SMIL */ } });
-      setTimeout(cerrar, quieto ? 900 : 3500);      // la animación acaba a los 2,5 s y queda 1 s más a la vista
+      // El celular tarda en sacar el audio por el parlante: el sonido arranca primero y la animación espera ese retraso
+      // (el que reporta el navegador, nunca menos de ADELANTO_SONIDO) para que el golpe caiga justo con la marca.
+      let espera = 0;
+      if (fuente) {
+        fuente.start();
+        espera = Math.max(ADELANTO_SONIDO, (ctx.outputLatency || 0) + (ctx.baseLatency || 0)) * 1000;
+      }
+      setTimeout(() => {
+        el.classList.add('va');
+        el.querySelectorAll('animateMotion, animate').forEach(a => { try { a.beginElementAt(.3); } catch (_) { /* sin SMIL */ } });
+        setTimeout(cerrar, quieto ? 900 : 3500);    // la animación acaba a los 2,5 s y queda 1 s más a la vista
+      }, espera);
     });
   };
   setTimeout(() => arrancar(null), 800);            // el sonido no llegó: la intro no espera más
