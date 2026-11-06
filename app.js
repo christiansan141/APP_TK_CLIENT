@@ -406,9 +406,8 @@ function horaTarj() {
 // iPhone sin Bluefy (Safari, Chrome de iPhone…): ahí no hay Bluetooth para páginas web. Se explica cómo abrirla en Bluefy.
 const APP_STORE_BLUEFY = 'https://apps.apple.com/app/id1492822055';
 const DIR_APP = location.origin + location.pathname;          // la dirección de esta app (la misma del QR y del NFC)
-// Enlace que abre esta app dentro de Bluefy. Se activa cuando Christian confirme en prueba_bluefy.html cuál funciona
-// (Bluefy registra los esquemas «bluefy» y «bluefy-pwa», pero no publica la forma exacta). null = todavía no.
-const ENLACE_BLUEFY = null;            // por ejemplo: dir => 'bluefy://open?url=' + encodeURIComponent(dir)
+// Enlace que abre esta app dentro de Bluefy: probado por Christian en su iPhone el 06/11/2026 (Bluefy no lo documenta)
+const ENLACE_BLUEFY = dir => 'bluefy://open?url=' + encodeURIComponent(dir);
 const CON_BLUEFY = 'tkapp-tiene-bluefy';      // este iPhone ya abrió la app en Bluefy: al escanear, salta directo
 function abrirEnBluefy() { if (!ENLACE_BLUEFY) return; guardar(CON_BLUEFY, '1'); location.href = ENLACE_BLUEFY(DIR_APP); }
 const esIphone = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
