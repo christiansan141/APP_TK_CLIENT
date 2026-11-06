@@ -406,12 +406,18 @@ function horaTarj() {
 // iPhone sin Bluefy (Safari, Chrome de iPhone…): ahí no hay Bluetooth para páginas web. Se explica cómo abrirla en Bluefy.
 const APP_STORE_BLUEFY = 'https://apps.apple.com/app/id1492822055';
 const DIR_APP = location.origin + location.pathname;          // la dirección de esta app (la misma del QR y del NFC)
+// Enlace que abre esta app dentro de Bluefy. Se activa cuando Christian confirme en prueba_bluefy.html cuál funciona
+// (Bluefy registra los esquemas «bluefy» y «bluefy-pwa», pero no publica la forma exacta). null = todavía no.
+const ENLACE_BLUEFY = null;            // por ejemplo: dir => 'bluefy://open?url=' + encodeURIComponent(dir)
+const CON_BLUEFY = 'tkapp-tiene-bluefy';      // este iPhone ya abrió la app en Bluefy: al escanear, salta directo
+function abrirEnBluefy() { if (!ENLACE_BLUEFY) return; guardar(CON_BLUEFY, '1'); location.href = ENLACE_BLUEFY(DIR_APP); }
 const esIphone = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function guiaIphone() {
   return `<div style="padding:4px 0 10px;text-align:center">
     <div class="candado" style="background:linear-gradient(135deg,#25785A,var(--verde))">${ic('bt', 26)}</div>
     <h3 style="margin:10px 0 4px;font-size:18px">En iPhone, TK_APP se abre en Bluefy</h3>
     <p class="sub" style="margin:0 24px 14px">El iPhone no deja usar el Bluetooth del equipo desde Safari ni desde Chrome. Bluefy es un navegador gratuito que sí lo permite.</p></div>
+    ${ENLACE_BLUEFY ? `<div style="padding:0 14px 12px"><button class="btn ver" data-act="bluefy">${ic('bt', 18)}Ya tengo Bluefy: abrir ahí</button></div>` : ''}
     <div class="tarj"><span class="eti2">Paso 1</span><div style="margin:4px 0 10px;font-weight:600">Instale Bluefy (una sola vez)</div>
       <a class="btn pri" style="text-decoration:none" href="${APP_STORE_BLUEFY}" target="_blank" rel="noopener">Abrir Bluefy en la App Store</a></div>
     <div class="tarj"><span class="eti2">Paso 2</span><div style="margin:4px 0 6px;font-weight:600">Abra Bluefy y pegue esta dirección</div>
@@ -579,6 +585,7 @@ function accion(a) {
     if (S.p === 'ficha' && !S.ficha) S.p = 'usuarios';
     pintar();
   }
+  else if (a === 'bluefy') abrirEnBluefy();
   else if (a === 'copiar') {
     (navigator.clipboard ? navigator.clipboard.writeText(DIR_APP) : Promise.reject()).then(() => tostada('Dirección copiada. Ábrala en Bluefy y péguela arriba.'))
       .catch(() => tostada('Copie a mano esta dirección: ' + esc(DIR_APP), 8000, true));
@@ -667,5 +674,7 @@ function montar() {
   document.documentElement.style.setProperty('--ola', `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="420" height="140" viewBox="0 0 420 140">${s}</svg>`)}")`);
 })();
 
+// iPhone que ya abrió la app en Bluefy: al escanear el QR o tocar el NFC (abre Safari), salta directo a Bluefy
+if (ENLACE_BLUEFY && esIphone() && !EquipoBle.disponible() && leer(CON_BLUEFY)) location.href = ENLACE_BLUEFY(DIR_APP);
 montar();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});

@@ -25,6 +25,9 @@ const formas = [
   'bluefys://' + sin,
   'bluefy://' + app,
   'bluefy:' + app,
+  'bluefy-pwa://open?url=' + encodeURIComponent(app),
+  'bluefy-pwa://' + sin,
+  'bluefy-pwa://' + app,
 ];
 document.getElementById('lista').innerHTML = formas.map((f, i) => `<a href="${f}">${i + 1}. Probar<span>${f}</span></a>`).join('');
 </script>
