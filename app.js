@@ -439,15 +439,20 @@ const CON_BLUEFY = 'tkapp-tiene-bluefy';      // este iPhone ya abrió la app en
 // Con él, la tarjeta de Inicio ofrece dejar TK_APP en la pantalla de inicio del iPhone. Vacío = la tarjeta no sale.
 const ATAJO_ICLOUD = 'https://www.icloud.com/shortcuts/d45eeb06b8834fb69a976a0e4fbb6b0f';   // compartido el 06/11/2026
 const ATAJO_LISTO = 'tkapp-atajo-listo';      // este iPhone ya lo agregó o no lo quiere: no se vuelve a ofrecer
+// Los dos enlaces se abren en Safari (x-safari-https://, iOS 17 o más): desde Bluefy, Atajos no recibe el enlace de iCloud
+// («No se pudo conectar a la galería»). El logo va aparte porque Apple no comparte la foto del ícono con el atajo.
+const enSafari = url => 'x-safari-' + url;
 function tarjetaAtajo() {
   if (!ATAJO_ICLOUD || !esIphone() || !EquipoBle.disponible() || leer(ATAJO_LISTO)) return '';
+  const logo = new URL('icono-512.png', location.href).href;
   return `<div class="tarj atajo"><span class="eti2">iPhone · acceso directo</span>
     <div class="at-tit">Deje TK_APP en su pantalla de inicio</div>
     <div class="sub">Así la abre con un toque, directo en Bluefy, sin escanear ni buscar el enlace.</div>
-    <ol class="at-pasos"><li>Toque <b>Agregar el atajo</b> y en Atajos toque <b>Agregar atajo</b>.</li>
-      <li>En Atajos, mantenga presionado <b>TK_APP</b> y toque <b>Detalles</b>.</li>
-      <li>Toque <b>Agregar a pantalla de inicio</b> y luego <b>Agregar</b>.</li></ol>
-    <a class="btn pri" style="text-decoration:none" href="${ATAJO_ICLOUD}" target="_blank" rel="noopener">${ic('down', 18)}Agregar el atajo</a>
+    <div class="at-paso"><b>1</b><div>Toque el botón: se abre en Safari. Toque <b>Obtener atajo</b> y luego <b>Agregar atajo</b>.</div></div>
+    <a class="btn pri" style="text-decoration:none" href="${enSafari(ATAJO_ICLOUD)}">${ic('down', 18)}Agregar el atajo</a>
+    <div class="at-paso"><b>2</b><div>Para que tenga el logo: toque el botón, mantenga presionada la imagen y toque <b>Añadir a Fotos</b>.</div></div>
+    <a class="btn sec" style="text-decoration:none" href="${enSafari(logo)}">Guardar el logo de TK_APP</a>
+    <div class="at-paso"><b>3</b><div>En Atajos, mantenga presionado <b>TK_APP</b> → <b>Detalles</b> → <b>Agregar a pantalla de inicio</b>. Toque el ícono pequeño → <b>Elegir foto</b> → el logo → <b>Agregar</b>.</div></div>
     <button class="anotar at-listo" data-act="atajolisto">Ya lo tengo · no mostrar más</button></div>`;
 }
 function abrirEnBluefy() { guardar(CON_BLUEFY, '1'); location.href = ENLACE_BLUEFY(DIR_APP); }
