@@ -444,16 +444,32 @@ const ATAJO_LISTO = 'tkapp-atajo-listo';      // este iPhone ya lo agregó o no 
 const enSafari = url => 'x-safari-' + url;
 function tarjetaAtajo() {
   if (!ATAJO_ICLOUD || !esIphone() || !EquipoBle.disponible() || leer(ATAJO_LISTO)) return '';
-  const logo = new URL('icono-512.png', location.href).href;
+  prepararLogoParaFotos();
   return `<div class="tarj atajo"><span class="eti2">iPhone · acceso directo</span>
     <div class="at-tit">Deje TK_APP en su pantalla de inicio</div>
     <div class="sub">Así la abre con un toque, directo en Bluefy, sin escanear ni buscar el enlace.</div>
     <div class="at-paso"><b>1</b><div>Toque el botón: se abre en Safari. Toque <b>Obtener atajo</b> y luego <b>Agregar atajo</b>.</div></div>
     <a class="btn pri" style="text-decoration:none" href="${enSafari(ATAJO_ICLOUD)}">${ic('down', 18)}Agregar el atajo</a>
-    <div class="at-paso"><b>2</b><div>Para que tenga el logo: toque el botón, mantenga presionada la imagen y toque <b>Añadir a Fotos</b>.</div></div>
-    <a class="btn sec" style="text-decoration:none" href="${enSafari(logo)}">Guardar el logo de TK_APP</a>
-    <div class="at-paso"><b>3</b><div>En Atajos, mantenga presionado <b>TK_APP</b> → <b>Detalles</b> → <b>Agregar a pantalla de inicio</b>. Toque el ícono pequeño → <b>Elegir foto</b> → el logo → <b>Agregar</b>.</div></div>
+    <div class="at-paso"><b>2</b><div>Para que tenga el logo: toque el botón y elija <b>Guardar imagen</b>. (Si se abre la imagen, manténgala presionada → <b>Añadir a Fotos</b>.)</div></div>
+    <button class="btn sec" data-act="guardarlogo">${ic('down', 18)}Guardar el logo en Fotos</button>
+    <div class="at-paso"><b>3</b><div>En Atajos, mantenga presionado <b>TK_APP</b> → <b>Compartir</b> → <b>Agregar a pantalla de inicio</b>. Toque el ícono pequeño → <b>Elegir foto</b> → el logo → <b>Agregar</b>.</div></div>
     <button class="anotar at-listo" data-act="atajolisto">Ya lo tengo · no mostrar más</button></div>`;
+}
+// El logo se baja apenas sale la tarjeta: así, al tocar el botón, el menú de compartir del iPhone se abre en el mismo toque
+// (con una espera en medio, iOS lo bloquea) y ahí está «Guardar imagen», que lo deja en Fotos.
+const URL_LOGO = () => new URL('icono-512.png', location.href).href;
+function prepararLogoParaFotos() {
+  if (S._logoFoto !== undefined) return;
+  S._logoFoto = null;
+  fetch(URL_LOGO()).then(r => r.blob()).then(b => { S._logoFoto = new File([b], 'TK_APP.png', {type: 'image/png'}); }).catch(() => {});
+}
+function guardarLogo() {
+  const f = S._logoFoto;
+  if (f && navigator.canShare && navigator.canShare({files: [f]})) {
+    navigator.share({files: [f], title: 'TK_APP'}).catch(() => {});   // cancelar el menú no es un error
+    return;
+  }
+  location.href = enSafari(URL_LOGO());      // el navegador no comparte archivos: se abre la imagen en Safari
 }
 function abrirEnBluefy() { guardar(CON_BLUEFY, '1'); location.href = ENLACE_BLUEFY(DIR_APP); }
 const esIphone = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -706,6 +722,7 @@ function accion(a) {
   }
   else if (a === 'bluefy') abrirEnBluefy();
   else if (a === 'atajolisto') { guardar(ATAJO_LISTO, '1'); pintar(); }
+  else if (a === 'guardarlogo') guardarLogo();
   else if (a === 'copiar') {
     (navigator.clipboard ? navigator.clipboard.writeText(DIR_APP) : Promise.reject()).then(() => tostada('Dirección copiada. Ábrala en Bluefy y péguela arriba.'))
       .catch(() => tostada('Copie a mano esta dirección: ' + esc(DIR_APP), 8000, true));
