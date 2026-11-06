@@ -4,7 +4,7 @@
 
 const VERSION_APP = '1.0 · 05/11/2026';
 const URL_DOCUMENTOS = 'https://drive.google.com/drive/folders/1FRbFGo9VDIqJsnvl2BH4vQDcxtFaq83v';
-const S = {p: 'conectar', con: false, eq: null, prueba: false, buscando: false, hora: null, fw: '', clave: '', claveMal: false, quedan: 3, finEspera: 0,
+const S = {p: 'conectar', con: false, eq: null, buscando: false, hora: null, fw: '', clave: '', claveMal: false, quedan: 3, finEspera: 0,
   pend: false, nuevo: null, firmaPaso: 0, checks: [false, false], lienzoTotal: false, trazosTmp: [], trazos: [], aj: null, firmado: null, enviando: false,
   usuarios: null, buscar: '', ficha: null, pdf: null, cons: {nombre: '', prestador: '', nit: '', tel: '', correo: ''}, consLeido: false, logo: '', rec: null, toast: null, ultimo: null, prev: null};
 const CAMPOS_CONS = ['nombre', 'prestador', 'nit', 'tel', 'correo'];
@@ -34,10 +34,9 @@ function tostada(txt, ms = 4200, error = false) { S.toast = txt; S.toastError = 
 const paseKey = () => 'tkapp-pase-' + (S.eq ? S.eq.serie : '');
 
 // ---- conexión, clave y hora ---------------------------------------------------------------------------------------------------
-async function buscarEquipo(prueba) {
+async function buscarEquipo() {
   if (S.buscando) return;
-  S.prueba = !!prueba;
-  const eq = prueba ? new EquipoPrueba() : new EquipoBle();
+  const eq = new EquipoBle();
   S.buscando = true; pintar();
   try {
     await eq.conectar();
@@ -430,8 +429,7 @@ function guiaIphone() {
     <div class="tarj"><span class="eti2">Paso 2</span><div style="margin:4px 0 6px;font-weight:600">Abra Bluefy y pegue esta dirección</div>
       <div class="sub" style="word-break:break-all;margin-bottom:10px">${esc(DIR_APP)}</div>
       <button class="btn ver" data-act="copiar">Copiar la dirección</button>
-      <div class="sub" style="margin-top:8px">En Bluefy, guárdela en favoritos para la próxima vez.</div></div>
-    <div style="padding:0 14px 16px"><button class="btn sec" data-act="prueba">${ic('play', 16)}Ver la app sin equipo</button></div>`;
+      <div class="sub" style="margin-top:8px">En Bluefy, guárdela en favoritos para la próxima vez.</div></div>`;
 }
 function pantallaConectar() {
   const ble = EquipoBle.disponible();
@@ -440,7 +438,7 @@ function pantallaConectar() {
     <div class="ble">${S.buscando ? '<i></i><i></i><i></i>' : ''}<b>${ic('bt', 30, 2.2)}</b></div>
     <h3 style="margin:8px 0 4px;font-size:18px">${S.buscando ? 'Conectando…' : 'Conecte el equipo'}</h3>
     <p class="sub" style="margin:0 28px 14px">${S.buscando ? 'Elija su equipo SKIN en la lista del celular.' : ble ? 'Prenda el SKIN TRANSDERM PLUS+ y active el Bluetooth del celular.' : 'Este navegador no tiene Bluetooth. En Android use Chrome.'}</p>
-    ${S.buscando ? '' : `<div style="padding:0 18px">${ble ? `<button class="btn ver" data-act="buscar">${ic('bt', 18)}Buscar equipo</button><div style="height:10px"></div>` : ''}<button class="btn sec" data-act="prueba">${ic('play', 16)}Probar sin equipo</button></div>`}
+    ${S.buscando || !ble ? '' : `<div style="padding:4px 18px 0"><button class="btn ver btn-buscar" data-act="buscar">${ic('bt', 22)}Buscar equipo</button></div>`}
     </div>
     <div class="sub" style="text-align:center;margin:10px 24px 0">El equipo atiende un solo celular a la vez. Si en la lista sale «ocupado», otro celular lo tiene conectado.</div>`;
 }
@@ -466,11 +464,7 @@ function pantallaInicio() {
       <div class="bal grande" data-go="usuarios"><div class="ic">${ic('users', 22)}</div><div><b>Usuarios y PDF</b><span>Buscar, ver la ficha y sacar documentos</span></div></div>
       <div class="bal" data-go="ajustes"><div class="ic">${ic('gear', 20)}</div><div><b>Consultorio</b><span>Logo y datos de los PDF</span></div></div>
       <div class="bal" data-act="documentos"><div class="ic">${ic('doc', 20)}</div><div><b>Documentos</b><span>Ficha técnica, registro y manual</span></div></div>
-    </div>
-    ${S.prueba ? `<div class="tarj"><span class="eti2">Equipo de prueba · hacer lo que haría el equipo</span><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
-      <button class="btn sec" style="width:auto;height:38px;font-size:12px" data-act="simfirma">Pedir una firma</button>
-      <button class="btn sec" style="width:auto;height:38px;font-size:12px" data-act="simcancelar">Cancelar la firma</button>
-      <button class="btn sec" style="width:auto;height:38px;font-size:12px" data-act="simhora">Pedir la hora</button></div></div>` : ''}`;
+    </div>`;
 }
 function pantallaFirma() {
   if (S.firmado) return `<div style="text-align:center;padding:30px 22px">
@@ -551,7 +545,7 @@ function cuerpo() {
 }
 function marco() {      // arriba la barra de A (marca y conexión); debajo el paso a paso de C
   const tst = S.toast ? `<div class="tostada">${ic(S.toastError ? 'alerta' : 'check', 18, 2.6)}<div>${S.toast}</div></div>` : '';
-  const barra = `<div class="barra"><div class="marca-app"><div class="lg">${LOGO_TK}</div><div><b>TK_APP</b><small>INGENIERÍA PARA LA ESTÉTICA${S.prueba ? ' · EQUIPO DE PRUEBA' : ''}</small></div></div>
+  const barra = `<div class="barra"><div class="marca-app"><div class="lg">${LOGO_TK}</div><div><b>TK_APP</b><small>INGENIERÍA PARA LA ESTÉTICA</small></div></div>
       <div class="conx ${S.con ? 'si' : ''}" ${S.con ? '' : 'data-go="conectar"'}><span class="pt"></span>${S.con ? `${esc(S.eq.serie)} conectado` : S.reconectando ? 'Reconectando…' : 'Sin equipo conectado'}<span class="der">${S.con ? (S.hora ? 'Hora ' + ahora().h : 'Bluetooth') : S.reconectando ? '' : 'Toque para conectar'}</span></div></div>`;
   const volver = !['inicio', 'conectar'].includes(S.p) ? `<button class="volver" data-act="atras">${ic('back', 16)}${['pdf', 'logo', 'ficha'].includes(S.p) ? 'Volver' : S.p === 'clave' ? 'Cancelar' : 'Inicio'}</button>` : '';
   const titulo = S.p === 'inicio' ? `<div class="hola-t"><b>${esc(S.cons.nombre) || 'TK_APP'}</b><small>¿Qué quiere hacer?</small></div>` : S.p === 'conectar' || S.p === 'clave' ? '' : `<h2>${TITULOS[S.p]}</h2>`;
@@ -664,8 +658,7 @@ function ir(p) {
   pintar();
 }
 function accion(a) {
-  if (a === 'buscar') buscarEquipo(false);
-  else if (a === 'prueba') buscarEquipo(true);
+  if (a === 'buscar') buscarEquipo();
   else if (a === 'atras') {
     if (S.p === 'clave') { perderConexion(); return; }
     S.p = S.p === 'pdf' ? (S.prev === 'firma' ? 'firma' : 'ficha') : S.p === 'ficha' ? 'usuarios' : S.p === 'logo' ? 'ajustes' : 'inicio';
@@ -695,9 +688,6 @@ function accion(a) {
   else if (a === 'guardarcons') guardarConsultorio();
   else if (a === 'olvidar') olvidarEquipo();
   else if (a === 'desconectar') perderConexion('Desconectado. El equipo queda libre para otro celular.');
-  else if (a === 'simfirma') S.eq.simularFirma();
-  else if (a === 'simcancelar') S.eq.simularCancelar();
-  else if (a === 'simhora') S.eq.simularHora();
 }
 // «Leer el documento completo» antes de firmar: el CI con los datos del que va a firmar, sin firma todavía
 function abrirLectura() {
