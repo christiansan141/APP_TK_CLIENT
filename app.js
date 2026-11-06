@@ -558,7 +558,7 @@ function marco() {      // arriba la barra de A (marca y conexión); debajo el p
   return `<div class="app vA vF">${barra}<div class="top">${volver}${titulo}</div><div class="cuerpo">${cuerpo()}</div>${S.lienzoTotal ? capaFirma() : ''}${tst}</div>`;
 }
 // ---- animación de inicio (propuesta C · firma, elegida el 06/11/2026) --------------------------------------------------------
-// Una pluma de luz traza la curva TK como una firma, la T y la K suben detrás y sale «TK_APP». Unos 3 s; tocar la pantalla
+// Una pluma de luz traza la curva TK como una firma, la T y la K suben detrás y sale «TK_APP». Unos 4 s; tocar la pantalla
 // la salta. Con «reducir movimiento» del celular solo aparece y se va.
 // Suena «Ola + Impulso» (inicio.mp3, elegido el 06/11/2026): la ola crece con la pluma y rompe en la marca a los 1,4 s.
 // Los celulares no dejan sonar una página que nadie ha tocado (salvo la app instalada): si se bloquea, va en silencio.
@@ -598,7 +598,7 @@ function inicioAnimado() {
       if (fuente) fuente.start();
       el.classList.add('va');
       el.querySelectorAll('animateMotion, animate').forEach(a => { try { a.beginElementAt(.3); } catch (_) { /* sin SMIL */ } });
-      setTimeout(cerrar, quieto ? 900 : 3000);
+      setTimeout(cerrar, quieto ? 900 : 3500);      // la animación acaba a los 2,5 s y queda 1 s más a la vista
     });
   };
   setTimeout(() => arrancar(null), 800);            // el sonido no llegó: la intro no espera más
