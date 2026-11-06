@@ -38,6 +38,11 @@ class EquipoBle extends EquipoBase {
     if (/ocupado/i.test(nombre)) { const e = new Error('ocupado'); e.ocupado = true; throw e; }
     this.serie = nombre.trim();
     this.disp.addEventListener('gattserverdisconnected', () => this.cortado());
+    await this.abrir();
+  }
+  // Volver a conectar al mismo equipo sin la lista del celular (si se cayó la conexión)
+  async reconectar() { await this.abrir(); }
+  async abrir() {
     const gatt = await this.disp.gatt.connect();
     const serv = await gatt.getPrimaryService(NUS);
     this.rx = await serv.getCharacteristic(NUS_RX);
@@ -80,6 +85,7 @@ class EquipoPrueba extends EquipoBase {
     this.sd = datosDePrueba();
   }
   async conectar() { await new Promise(r => setTimeout(r, 700)); }
+  async reconectar() { await new Promise(r => setTimeout(r, 500)); }
   responder(m, ms = 250) { setTimeout(() => this.recibido(m), ms); }
   async enviar(m) {
     const t = m.t, PASES = 'tkapp-prueba-pases';

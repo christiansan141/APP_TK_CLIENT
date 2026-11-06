@@ -43,14 +43,14 @@ async function buscarEquipo(prueba) {
     await eq.conectar();
   } catch (e) {
     S.buscando = false;
-    if (e.ocupado) tostada('Ese equipo ya está conectado a otro celular. Desconéctelo allá (o apague y prenda el equipo) y vuelva a intentar.', 6500);
-    else if (e.name !== 'NotFoundError') tostada('No se pudo conectar: ' + (e.message || e) + '. Revise que el equipo esté prendido y cerca.', 6000);
+    if (e.ocupado) tostada('Ese equipo ya está conectado a otro celular. Desconéctelo allá o espere medio minuto y vuelva a intentar.', 6500, true);
+    else if (e.name !== 'NotFoundError') tostada('No se pudo conectar. Espere unos segundos y vuelva a intentar; revise que el equipo esté prendido y cerca.', 6500, true);
     else pintar();
     return;
   }
   S.eq = eq;
   eq.alEvento = alAviso;
-  eq.alCortar = () => { if (S.eq !== eq) return; perderConexion('Se perdió la conexión con el equipo. Búsquelo de nuevo.'); };
+  eq.alCortar = () => { if (S.eq === eq) reconectar(eq); };
   try {
     const r = await eq.pedir({t: 'hola', fecha: isoLocal(), pase: leer(paseKey()) || '', app: VERSION_APP});
     S.fw = r.fw || ''; S.buscando = false;
@@ -79,8 +79,31 @@ async function leerConsultorio() {
   } catch (_) { /* se vuelve a pedir al usarlo */ }
   return S.consLeido;
 }
+// Si la conexión se cae (pantalla apagada, Chrome en segundo plano, el celular se alejó), la app vuelve a entrar sola al
+// mismo equipo, sin la lista ni la contraseña, y deja al usuario en la misma pantalla. El equipo reemplaza la conexión
+// muerta a los 25 s de silencio (bluetooth.ino), así que se intenta durante un minuto.
+async function reconectar(eq) {
+  if (S.reconectando) return;
+  S.reconectando = true; S.con = false; S.lienzoTotal = false;
+  tostada('Se perdió la conexión con el equipo. Reconectando…', 65000);
+  for (let i = 0; i < 12 && S.eq === eq && S.reconectando; i++) {
+    await new Promise(r => setTimeout(r, i ? 5000 : 1500));
+    if (S.eq !== eq || !S.reconectando) return;
+    try {
+      await eq.reconectar();
+      const r = await eq.pedir({t: 'hola', fecha: isoLocal(), pase: leer(paseKey()) || '', app: VERSION_APP}, 8000);
+      if (r.acceso !== 'ok') break;           // el pase ya no vale: hay que entrar con la contraseña
+      S.reconectando = false; S.con = true; S.hora = ahora();
+      if (S.p === 'conectar' || S.p === 'clave') S.p = 'inicio';
+      tostada('Reconectado al equipo.');
+      return;
+    } catch (_) { /* el equipo aún no la suelta: se vuelve a intentar */ }
+  }
+  S.reconectando = false;
+  if (S.eq === eq) perderConexion('No se pudo volver a conectar. Toque «Buscar equipo».');
+}
 function perderConexion(motivo) {
-  Object.assign(S, {con: false, p: 'conectar', buscando: false, pend: false, lienzoTotal: false, hora: null, usuarios: null, ficha: null, pdf: null, consLeido: false});
+  Object.assign(S, {con: false, p: 'conectar', buscando: false, pend: false, lienzoTotal: false, hora: null, usuarios: null, ficha: null, pdf: null, consLeido: false, reconectando: false});
   if (S.eq) { S.eq.alCortar = () => {}; S.eq.desconectar(); }
   S.eq = null;
   if (motivo) tostada(motivo, 5500); else pintar();
@@ -516,7 +539,7 @@ function cuerpo() {
 function marco() {      // arriba la barra de A (marca y conexión); debajo el paso a paso de C
   const tst = S.toast ? `<div class="tostada">${ic(S.toastError ? 'alerta' : 'check', 18, 2.6)}<div>${S.toast}</div></div>` : '';
   const barra = `<div class="barra"><div class="marca-app"><div class="lg">${LOGO_TK}</div><div><b>TK_APP</b><small>INGENIERÍA PARA LA ESTÉTICA${S.prueba ? ' · EQUIPO DE PRUEBA' : ''}</small></div></div>
-      <div class="conx ${S.con ? 'si' : ''}" ${S.con ? '' : 'data-go="conectar"'}><span class="pt"></span>${S.con ? `${esc(S.eq.serie)} conectado` : 'Sin equipo conectado'}<span class="der">${S.con ? (S.hora ? 'Hora ' + S.hora.h : 'Bluetooth') : 'Toque para conectar'}</span></div></div>`;
+      <div class="conx ${S.con ? 'si' : ''}" ${S.con ? '' : 'data-go="conectar"'}><span class="pt"></span>${S.con ? `${esc(S.eq.serie)} conectado` : S.reconectando ? 'Reconectando…' : 'Sin equipo conectado'}<span class="der">${S.con ? (S.hora ? 'Hora ' + S.hora.h : 'Bluetooth') : S.reconectando ? '' : 'Toque para conectar'}</span></div></div>`;
   const volver = !['inicio', 'conectar'].includes(S.p) ? `<button class="volver" data-act="atras">${ic('back', 16)}${['pdf', 'logo', 'ficha'].includes(S.p) ? 'Volver' : S.p === 'clave' ? 'Cancelar' : 'Inicio'}</button>` : '';
   const titulo = S.p === 'inicio' ? `<div class="hola-t"><b>${esc(S.cons.nombre) || 'TK_APP'}</b><small>¿Qué quiere hacer?</small></div>` : S.p === 'conectar' || S.p === 'clave' ? '' : `<h2>${TITULOS[S.p]}</h2>`;
   return `<div class="app vA vF">${barra}<div class="top">${volver}${titulo}</div><div class="cuerpo">${cuerpo()}</div>${S.lienzoTotal ? capaFirma() : ''}${tst}</div>`;
@@ -629,7 +652,7 @@ function montar() {
   const ancho = () => cel.classList.toggle('ancha', innerWidth > 640);
   addEventListener('resize', () => { ancho(); if (S.p === 'pdf' || S.aj) pintar(); });
   ancho();
-  setInterval(() => { if (S.con && S.eq) S.eq.pedir({t: 'ping'}, 8000).catch(() => {}); }, 20000);
+  setInterval(() => { if (S.con && S.eq) S.eq.pedir({t: 'ping'}, 8000).catch(() => {}); }, 10000);   // señal de vida: el equipo suelta a los 25 s de silencio
   pintar();
   if (document.fonts) document.fonts.ready.then(pintar);
 }
