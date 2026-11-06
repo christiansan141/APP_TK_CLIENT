@@ -400,8 +400,8 @@ function miniatura(cont, hojas, ancho) {
 // ---- pantallas --------------------------------------------------------------------------------------------------------------
 function horaTarj() {
   return `<div class="tarj"><div style="display:flex;align-items:center;justify-content:space-between"><span class="eti2">Fecha y hora del equipo</span>${S.hora ? `<span class="pill-ok">${ic('check', 13, 3)}Puesta</span>` : `<span class="pill-esp">Sin poner</span>`}</div>
-    <div class="hora-grande" style="margin-top:4px">${S.hora ? S.hora.h : '--:--'}</div>
-    <div class="sub">${S.hora ? `${S.hora.f} · la puso este celular al conectarse. El equipo la lleva hasta que se apague.` : 'Se pone sola al conectar: la app le pasa la hora del celular.'}</div></div>`;
+    <div class="hora-grande" style="margin-top:4px">${S.hora ? ahora().h : '--:--'}</div>
+    <div class="sub">${S.hora ? `${ahora().f} · la de este celular. El equipo la lleva al minuto y cada valoración y sesión se guarda con la hora en que se hace.` : 'Se pone sola al conectar: la app le pasa la hora del celular.'}</div></div>`;
 }
 // iPhone sin Bluefy (Safari, Chrome de iPhone…): ahí no hay Bluetooth para páginas web. Se explica cómo abrirla en Bluefy.
 const APP_STORE_BLUEFY = 'https://apps.apple.com/app/id1492822055';
@@ -659,6 +659,10 @@ function montar() {
   addEventListener('resize', () => { ancho(); if (S.p === 'pdf' || S.aj) pintar(); });
   ancho();
   setInterval(() => { if (S.con && S.eq) S.eq.pedir({t: 'ping'}, 8000).catch(() => {}); }, 10000);   // señal de vida: el equipo suelta a los 25 s de silencio
+  // La hora del equipo se repasa cada 5 min (corrige lo que se adelante o atrase su reloj si queda encendido todo el día)
+  // y la tarjeta de Inicio se refresca cada minuto para mostrar la hora de ahora, no la de cuando se conectó
+  setInterval(() => { if (S.con && S.eq) S.eq.pedir({t: 'hora', fecha: isoLocal()}, 8000).then(() => { S.hora = ahora(); }).catch(() => {}); }, 300000);
+  setInterval(() => { if (S.con && S.p === 'inicio') pintar(); }, 60000);
   pintar();
   if (document.fonts) document.fonts.ready.then(pintar);
 }
