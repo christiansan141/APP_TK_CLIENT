@@ -560,6 +560,8 @@ function marco() {      // arriba la barra de A (marca y conexión); debajo el p
 // ---- animación de inicio (propuesta C · firma, elegida el 06/11/2026) --------------------------------------------------------
 // Una pluma de luz traza la curva TK como una firma, la T y la K suben detrás y sale «TK_APP». Unos 3 s; tocar la pantalla
 // la salta. Con «reducir movimiento» del celular solo aparece y se va.
+// Suena «Ola + Impulso» (inicio.mp3, elegido el 06/11/2026): la ola crece con la pluma y rompe en la marca a los 1,4 s.
+// Los celulares no dejan sonar una página que nadie ha tocado: si el navegador lo bloquea, la animación sigue en silencio.
 const MARCA_T = '246.71 639.26 246.71 143.38 50.36 143.38 50.36 0 622.95 0 622.95 143.38 427.52 143.38 427.52 639.26 246.71 639.26';
 const MARCA_K = '908.96 695.6 634.65 339.57 894.35 56.34 696.18 56.34 421.3 351.31 421.3 564.81 515.83 463.52 698.92 695.6 908.96 695.6';
 const MARCA_FIRMA = 'M214,346 C120,392 64,458 64,530 C64,660 240,766 463,766 C560,766 645,746 712,711';   // la curva TK como un trazo
@@ -577,8 +579,15 @@ function inicioAnimado() {
       <animate attributeName="opacity" begin="0.3s" dur="1.2s" fill="freeze" values="1;1;0" keyTimes="0;.85;1"/></g>`}</g></svg>
     <div class="it-nombre"><b>TK_APP</b><span>INGENIERÍA PARA LA ESTÉTICA</span></div></div>`;
   document.body.appendChild(el);
+  const sonido = new Audio('inicio.mp3');
+  sonido.volume = .8;
+  sonido.play().catch(() => {});
   let fin = false;
-  const cerrar = () => { if (fin) return; fin = true; el.classList.add('sale'); setTimeout(() => el.remove(), 450); };
+  const cerrar = () => {
+    if (fin) return;
+    fin = true; el.classList.add('sale'); setTimeout(() => el.remove(), 450);
+    const bajar = setInterval(() => { sonido.volume = Math.max(0, sonido.volume - .1); if (!sonido.volume) { clearInterval(bajar); sonido.pause(); } }, 40);
+  };
   el.addEventListener('pointerdown', cerrar);
   setTimeout(cerrar, quieto ? 900 : 3000);
 }
