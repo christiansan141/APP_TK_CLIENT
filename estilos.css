@@ -347,8 +347,9 @@ html.noche .doc, html.noche .mini-pdf, html.noche .miniatura, html.noche .papel,
 
 /* Sin zoom en el iPhone (Bluefy): dos toques rápidos en el teclado de la contraseña hacían «doble toque para acercar» y la
    pantalla se descuadraba. touch-action: manipulation deja tocar y desplazar, pero no ese zoom. Y en iPhone un campo de
-   texto con letra menor de 16 px acerca la pantalla al tocarlo: allí los campos van a 16 px. */
-html, body, button, a, input, .teclado button, [data-act], [data-go], [data-tecla] { touch-action: manipulation; }
+   texto con letra menor de 16 px acerca la pantalla al tocarlo: allí los campos van a 16 px (respaldo de la meta del
+   viewport, por si Bluefy la ignora). El pellizco lo frena app.js (bloquearZoom). */
+html, body, button, a, input, [data-act], [data-go] { touch-action: manipulation; }
 @supports (-webkit-touch-callout: none) {
   input, textarea, select { font-size: 16px !important; }
 }

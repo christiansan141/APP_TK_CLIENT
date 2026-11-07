@@ -733,7 +733,7 @@ function accion(a) {
       .catch(() => tostada('Copie a mano esta dirección: ' + esc(DIR_APP), 8000, true));
   }
   else if (a === 'documentos') { window.open(URL_DOCUMENTOS, '_blank', 'noopener'); }
-  else if (a === 'paso') { S.firmaPaso++; pintar(); }
+  else if (a === 'paso') { if (S.firmaPaso === 1 && !(S.checks[0] && S.checks[1])) return; S.firmaPaso++; pintar(); }
   else if (a === 'abrirfirma') { S.trazosTmp = []; S.lienzoTotal = true; pintar(); }
   else if (a === 'ftborrar') { S.trazosTmp = []; pintar(); }
   else if (a === 'ftcancelar') { S.lienzoTotal = false; pintar(); }
@@ -821,21 +821,15 @@ function montar() {
 
 // iPhone que ya abrió la app en Bluefy: al escanear el QR o tocar el NFC (abre Safari), salta directo a Bluefy
 if (esIphone() && !EquipoBle.disponible() && leer(CON_BLUEFY)) location.href = ENLACE_BLUEFY(DIR_APP);
-// Sin zoom en el iPhone, también desde el código (Bluefy no siempre respeta user-scalable=no): se bloquean el pellizco y el
-// doble toque. El segundo toque rápido no se pierde: se convierte en un clic normal (así la contraseña se teclea rápido).
-// Las zonas que usan sus propios gestos (firma, ajuste de la firma, recorte del logo) y los campos de texto quedan libres.
+// Sin pellizco en el iPhone: iOS ignora user-scalable=no para el pellizco, así que se frena aquí (gesture* y el movimiento
+// con dos dedos). El doble toque y el zoom al tocar un campo los evitan el CSS (touch-action: manipulation, letra de 16 px)
+// y la meta del viewport. Las zonas con gestos propios (firma, su ajuste, recorte del logo) y los campos quedan libres.
 const ZONAS_LIBRES = 'input, textarea, select, [data-ft], [data-ajuste], [data-recorte]';
 function bloquearZoom() {
   if (!esIphone()) return;
-  const libre = e => e.target && e.target.closest && e.target.closest(ZONAS_LIBRES);
+  const libre = e => e.target.closest(ZONAS_LIBRES);
   for (const g of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(g, e => { if (!libre(e)) e.preventDefault(); }, {passive: false});
   document.addEventListener('touchmove', e => { if (e.touches.length > 1 && !libre(e)) e.preventDefault(); }, {passive: false});
-  let ultimo = 0;
-  document.addEventListener('touchend', e => {
-    const ahora = Date.now();
-    if (ahora - ultimo < 350 && !libre(e)) { e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true})); }
-    ultimo = ahora;
-  }, {passive: false});
 }
 bloquearZoom();
 montar();
