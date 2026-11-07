@@ -59,7 +59,8 @@ async function buscarEquipo() {
   } catch (e) { S.buscando = false; perderConexion('El equipo no respondió. Vuelva a intentar.'); }   // sin reconexión: nadie entró
 }
 async function entrar(conClave) {
-  S.con = true; S.buscando = false; S.reconectando = false; S.hora = ahora(); S.p = 'inicio'; S.clave = '';
+  S.con = true; S.buscando = false; S.reconectando = false;
+  sonarAlConectar(); S.hora = ahora(); S.p = 'inicio'; S.clave = '';
   pintar();
   tostada(`${conClave ? 'Contraseña correcta: este celular queda de confianza. ' : ''}Conectado a ${esc(S.eq.serie)}. Fecha y hora enviadas al equipo: <b>${S.hora.f} · ${S.hora.h}</b>`);
   await leerConsultorio();
@@ -255,16 +256,32 @@ async function enviarFirma() {
 
 // ---- logo: cualquier foto, se recorta la región (como en WhatsApp) --------------------------------------------------------
 const LOGO_W = 500, LOGO_H = 200;          // 45 × 18 mm (5:2): el recuadro fijo de los formatos
+// Las fotos del celular pueden tener 12 MP o más: el iPhone no alcanzaba a moverlas y no dejaba cambiar el logo. Se
+// reducen a 1600 px por el lado largo antes de recortar (para un logo de 500 × 200 sobra) y se avisa si no abre.
+const LOGO_MAX_PX = 1600;
 function elegirFoto() {
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
   inp.onchange = () => {
     const f = inp.files[0]; if (!f) return;
-    const r = new FileReader();
-    r.onload = () => { const img = new Image(); img.onload = () => { const R = S.rec = {img, src: r.result, w: img.naturalWidth, h: img.naturalHeight};
-      // Empieza con la foto entera dentro del recuadro (fondo blanco alrededor); se puede alejar un poco más o acercar hasta 4 veces lo que lo llena
-      const entera = Math.min(250 / R.w, 100 / R.h), llena = Math.max(250 / R.w, 100 / R.h);
-      Object.assign(R, {zMin: entera * .5, zMax: llena * 4, z: entera}); R.x = (250 - R.w * R.z) / 2; R.y = (100 - R.h * R.z) / 2; S.p = 'logo'; pintar(); }; img.src = r.result; };
-    r.readAsDataURL(f);
+    const url = URL.createObjectURL(f), img = new Image();
+    img.onerror = () => { URL.revokeObjectURL(url); tostada('No se pudo abrir esa foto. Pruebe con otra, o con una captura de pantalla del logo.', 6500, true); };
+    img.onload = () => {
+      const k = Math.min(1, LOGO_MAX_PX / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      const src = c.toDataURL('image/jpeg', .92), chica = new Image();
+      chica.onload = () => {
+        const R = S.rec = {img: chica, src, w: chica.naturalWidth, h: chica.naturalHeight};
+        // Empieza con la foto entera dentro del recuadro (fondo blanco alrededor); se puede alejar un poco más o acercar hasta 4 veces lo que lo llena
+        const entera = Math.min(250 / R.w, 100 / R.h), llena = Math.max(250 / R.w, 100 / R.h);
+        Object.assign(R, {zMin: entera * .5, zMax: llena * 4, z: entera}); R.x = (250 - R.w * R.z) / 2; R.y = (100 - R.h * R.z) / 2; S.p = 'logo'; pintar();
+        if (k < 1) tostada('La foto era muy grande: se redujo sola para poder ajustarla. El logo sale igual de nítido.', 5000);
+      };
+      chica.src = src;
+    };
+    img.src = url;
   };
   inp.click();
 }
@@ -382,6 +399,7 @@ async function abrirPdf(k, n, id = S.ficha && S.ficha.id) {
     S.pdf = {hojas: paginar(html, base), titulo, nombre: sinTildes(nombre).replace(/[^\w]+/g, '_') + '.pdf', quien: F.u.nombre};
   } catch (e) { S.pdf = {error: e.message || 'No se pudo armar el documento.'}; }
   if (S.p === 'pdf') pintar();
+  prepararPdf();
 }
 function cargarScript(src) {
   return new Promise((ok, mal) => { if (document.querySelector(`script[src="${src}"]`)) return ok(); const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => mal(new Error('Sin internet para armar el PDF')); document.head.appendChild(s); });
@@ -405,18 +423,49 @@ async function hacerPdf(hojas, avance) {
   zona.innerHTML = ''; zona.style.cssText = '';
   return pdf.output('blob');
 }
-async function entregarPdf(compartir) {
+// El PDF se arma en cuanto se ve la vista previa (prepararPdf). Así, al tocar «Compartir» o «Guardar», el menú del
+// celular se abre en ese mismo toque: el iPhone (Safari y Bluefy) solo lo deja abrir justo después de tocar algo, y si
+// antes había que esperar varios segundos armando el PDF, lo bloqueaba. Y en iPhone fuera de Safari (Bluefy) las
+// descargas no se pueden guardar: allí «Guardar» también abre el menú, donde está «Guardar en Archivos».
+let colaPdf = Promise.resolve();
+async function prepararPdf() {
   const D = S.pdf;
-  if (!D || !D.hojas || D.haciendo) return;
+  if (!D || !D.hojas || D.blob || D.haciendo) return;
   try {
-    if (!D.blob) { D.haciendo = 'Armando el PDF…'; pintar(); D.blob = await hacerPdf(D.hojas, (i, n) => { D.haciendo = `Armando la hoja ${i} de ${n}…`; pintar(); }); }
-    D.haciendo = null; pintar();
-    const file = new File([D.blob], D.nombre, {type: 'application/pdf'});
-    if (compartir && navigator.canShare && navigator.canShare({files: [file]})) { await navigator.share({files: [file], title: D.nombre}); return; }
-    const a = document.createElement('a'); a.href = URL.createObjectURL(D.blob); a.download = D.nombre; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 30000);
-    tostada(compartir ? 'Este navegador no deja compartir: el PDF se guardó en Descargas.' : 'PDF guardado en Descargas.');
-  } catch (e) { D.haciendo = null; if (e.name !== 'AbortError') tostada('No se pudo armar el PDF: ' + (e.message || e)); else pintar(); }
+    D.haciendo = 'Preparando el PDF…'; if (S.p === 'pdf') pintar();
+    // de a uno: hacerPdf dibuja en una sola zona oculta (#imprimir); dos a la vez se mezclarían
+    const turno = colaPdf.then(() => hacerPdf(D.hojas, (i, n) => { D.haciendo = `Preparando la hoja ${i} de ${n}…`; if (S.p === 'pdf' && S.pdf === D) pintar(); }));
+    colaPdf = turno.catch(() => {});
+    D.blob = await turno;
+    D.archivo = new File([D.blob], D.nombre, {type: 'application/pdf'});
+    D.haciendo = null;
+  } catch (e) { D.haciendo = null; D.falloPdf = e.message || String(e); }
+  if (S.p === 'pdf' && S.pdf === D) pintar();
+}
+function entregarPdf(compartir) {
+  const D = S.pdf;
+  if (!D || !D.hojas) return;
+  if (D.falloPdf) { D.falloPdf = null; prepararPdf(); return tostada('No se pudo armar el PDF. Se está intentando otra vez.', 5000, true); }
+  if (!D.archivo) return tostada('Un momento: el PDF todavía se está preparando.');
+  const f = D.archivo;
+  if ((compartir || esIphone()) && navigator.canShare && navigator.canShare({files: [f]})) {
+    // sin esperas antes de esta línea: el menú se abre dentro del mismo toque
+    navigator.share({files: [f], title: D.nombre}).then(() => {}, e => {
+      if (e && e.name !== 'AbortError') abrirPdfAparte(D);         // el menú no se pudo abrir: se muestra el PDF
+    });
+    if (esIphone() && !compartir) tostada('En el menú elija <b>Guardar en Archivos</b>.', 6000);
+    return;
+  }
+  if (esIphone()) return abrirPdfAparte(D);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(D.blob); a.download = D.nombre; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+  tostada(compartir ? 'Este navegador no deja compartir: el PDF se guardó en Descargas.' : 'PDF guardado en Descargas.');
+}
+// Último recurso en iPhone: abrir el PDF en una pestaña; desde ahí el botón de compartir del navegador permite guardarlo
+function abrirPdfAparte(D) {
+  const url = URL.createObjectURL(D.blob);
+  if (!window.open(url, '_blank')) location.href = url;
+  tostada('Se abrió el PDF. Use el botón de compartir del navegador para guardarlo o enviarlo.', 7000);
 }
 function miniatura(cont, hojas, ancho) {
   const esc = ancho / 816, sep = 22;
@@ -452,7 +501,15 @@ function panelAtajo() {
     <div class="ap-cab"><b>Acceso directo en el iPhone</b><button data-act="atajocerrar" aria-label="Cerrar">✕</button></div>
     <button class="btn pri" data-act="agregaratajo">${ic('share', 18)}Agregar atajo</button>
     <button class="btn sec" data-act="guardaricono">${ic('down', 18)}Guardar imagen</button>
-    <div class="sub ap-nota">Después, en Atajos: mantenga presionado <b>TK_APP</b> → <b>Compartir</b> → <b>Agregar a pantalla de inicio</b> y elija la imagen como ícono.</div>
+    <ol class="ap-pasos">
+      <li><b>Agregar atajo:</b> se abre Safari con el atajo TK_APP. Toque <b>Obtener atajo</b> y luego <b>Agregar atajo</b>.</li>
+      <li><b>Guardar imagen:</b> en el menú toque <b>Guardar imagen</b>. (Si en cambio se abre la imagen: manténgala presionada → <b>Añadir a Fotos</b>.)</li>
+      <li>Abra la app <b>Atajos</b> del iPhone y mantenga presionado <b>TK_APP</b> hasta que salga un menú.</li>
+      <li>Toque <b>Compartir</b> y luego <b>Agregar a pantalla de inicio</b>. (Si no aparece: toque los tres puntos <b>…</b> de TK_APP, arriba toque el nombre <b>TK_APP ▾</b> y ahí está.)</li>
+      <li>Toque el ícono pequeño → <b>Elegir foto</b> → la imagen de TK_APP que guardó → ajústela y toque <b>Elegir</b>.</li>
+      <li>Revise que el nombre diga <b>TK_APP</b> y toque <b>Agregar</b>. Listo: el ícono de su pantalla de inicio abre la app en Bluefy.</li>
+    </ol>
+    <div class="sub ap-nota">Si Safari dice «No se pudo conectar a la galería», pruebe con datos móviles en vez de Wi-Fi o reinicie el iPhone.</div>
   </div></div>`;
 }
 // El ícono de la app (no el logo del consultorio) se baja al abrir el panel: así, al tocar «Guardar imagen», el menú de
@@ -573,7 +630,8 @@ function pantallaPdf() {
   if (D.error) return `<div class="tarj"><b>No se pudo armar el documento</b><div class="sub" style="margin-top:4px">${esc(D.error)}</div></div>`;
   return `<div class="tarj" style="padding:12px 14px"><span class="eti2">${esc(D.titulo)} · ${esc(D.quien)}</span><div class="sub">${D.hojas.length} ${D.hojas.length === 1 ? 'hoja' : 'hojas'} tamaño carta · armado ahora con los datos del equipo</div></div>
     <div class="mini-pdf" data-mini style="height:360px"></div>
-    <div style="display:flex;gap:10px;margin:14px 14px 18px"><button class="btn pri" data-act="compartir" ${D.haciendo ? 'disabled' : ''}>${ic('share', 18)}${D.haciendo || 'Compartir'}</button><button class="btn sec" data-act="guardar" ${D.haciendo ? 'disabled' : ''}>${ic('down', 18)}Guardar PDF</button></div>`;
+    <div style="display:flex;gap:10px;margin:14px 14px 18px"><button class="btn pri" data-act="compartir" ${D.archivo ? '' : 'disabled'}>${ic('share', 18)}${D.archivo ? 'Compartir' : D.haciendo || 'Preparando…'}</button><button class="btn sec" data-act="guardar" ${D.archivo ? '' : 'disabled'}>${ic('down', 18)}Guardar PDF</button></div>
+    ${D.falloPdf ? `<div class="sub" style="margin:-8px 16px 14px;text-align:center">No se pudo preparar el PDF (${esc(D.falloPdf)}). <button class="anotar" data-act="guardar">Intentar otra vez</button></div>` : ''}`;
 }
 function pantallaAjustes() {
   const c = (e, k, tipo = 'text') => `<div class="campo"><span>${e}</span><input data-cons="${k}" type="${tipo}" value="${esc(S.cons[k])}" maxlength="80"></div>`;
@@ -671,7 +729,7 @@ function inicioAnimado() {
       const datos = await (await fetch('inicio.mp3')).arrayBuffer();
       const buf = await new Promise((ok, mal) => ctx.decodeAudioData(datos, ok, mal));
       if (ctx.state !== 'running') await Promise.race([ctx.resume(), new Promise(r => setTimeout(r, 250))]);
-      if (ctx.state !== 'running') { ctx.close().catch(() => {}); return arrancar(null); }   // no deja sonar: en silencio
+      if (ctx.state !== 'running') { sonidoParaDespues(ctx, buf); return arrancar(null); }   // no deja sonar: suena al conectar
       const fuente = ctx.createBufferSource();
       volumen = ctx.createGain();
       volumen.gain.value = .8;
@@ -757,6 +815,7 @@ function abrirLectura() {
   const base = {u: {id: 0, nombre: S.nuevo.nombre, cc: S.nuevo.cc}, cons: S.cons, logo: S.logo};
   const a = ahora();
   S.pdf = {hojas: paginar(docCI({...base, ci: {fecha: `${a.f} · ${a.h}`, consultorio: S.cons.nombre}, firma: ''}), base), titulo: 'Autorización (para leer)', nombre: 'Autorizacion.pdf', quien: S.nuevo.nombre};
+  prepararPdf();
   pintar();
 }
 async function olvidarEquipo() {
@@ -825,6 +884,28 @@ if (esIphone() && !EquipoBle.disponible() && leer(CON_BLUEFY)) location.href = E
 // con dos dedos). El doble toque y el zoom al tocar un campo los evitan el CSS (touch-action: manipulation, letra de 16 px)
 // y la meta del viewport. Las zonas con gestos propios (firma, su ajuste, recorte del logo) y los campos quedan libres.
 const ZONAS_LIBRES = 'input, textarea, select, [data-ft], [data-ajuste], [data-recorte]';
+// El iPhone (Safari y Bluefy) no deja sonar una página que nadie ha tocado: la intro sale en silencio. Entonces el
+// sonido queda listo, el primer toque lo «desbloquea» y el pi-pi-pi suena una vez cuando se conecta el equipo.
+let sonidoPendiente = null;
+function sonidoParaDespues(ctx, buf) {
+  sonidoPendiente = {ctx, buf, sonado: false};
+  const desbloquear = () => {
+    ctx.resume().catch(() => {});
+    for (const t of ['touchend', 'click']) document.removeEventListener(t, desbloquear, true);
+  };
+  for (const t of ['touchend', 'click']) document.addEventListener(t, desbloquear, true);
+}
+function sonarAlConectar() {
+  const s = sonidoPendiente;
+  if (!s || s.sonado) return;
+  s.ctx.resume().then(() => {
+    if (s.ctx.state !== 'running' || s.sonado) return;
+    s.sonado = true;
+    const f = s.ctx.createBufferSource(), g = s.ctx.createGain();
+    g.gain.value = .8; f.buffer = s.buf; f.connect(g).connect(s.ctx.destination);
+    f.start(0, 1.3);                          // el archivo trae 1,4 s de silencio antes de las notas (es para la intro)
+  }).catch(() => {});
+}
 function bloquearZoom() {
   if (!esIphone()) return;
   const libre = e => e.target.closest(ZONAS_LIBRES);
