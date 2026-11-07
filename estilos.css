@@ -140,6 +140,7 @@ textarea:focus{outline:none;border-color:var(--azul);background:#fff}
 .pdfb{margin-left:auto;border:0;border-radius:11px;padding:7px 10px;background:#EEF3FB;color:var(--azul);font-size:11.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px}
 .tostada{position:absolute;left:14px;right:14px;bottom:18px;z-index:45;background:#22204F;color:#fff;border-radius:16px;padding:12px 14px;font-size:12.5px;line-height:1.45;display:flex;gap:10px;align-items:flex-start;box-shadow:0 14px 30px rgba(0,0,0,.3);animation:sube .25s ease}
 .tostada svg{flex:none;color:#7FD3AE}
+.tostada .anotar{color:#fff;text-decoration:underline;font-size:12.5px}   /* botones dentro del aviso: que se vean sobre el fondo oscuro */
 @keyframes sube{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
 .campo{margin-bottom:10px}
 .campo span{display:block;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--tinta3);margin-bottom:3px}
@@ -340,12 +341,11 @@ html.noche .doc, html.noche .mini-pdf, html.noche .miniatura, html.noche .papel,
 /* Atajo de iPhone: ícono pequeño en la barra y panel con «Agregar atajo» y «Guardar imagen» (solo en Bluefy) */
 .atajo-btn{margin-left:auto;width:34px;height:34px;border:0;border-radius:11px;background:rgba(255,255,255,.16);color:#fff;display:grid;place-items:center;cursor:pointer}
 .atajo-fondo{position:absolute;inset:0;z-index:40;background:rgba(22,21,44,.55);display:flex;align-items:flex-start;justify-content:center;padding:84px 16px 0}
-.atajo-panel{width:100%;max-width:360px;background:var(--carta);border-radius:20px;padding:14px;box-shadow:0 18px 40px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:10px}
+/* la guía paso a paso puede ser más alta que la pantalla: el panel se desplaza (100px = 84 de arriba + 16 de abajo) */
+.atajo-panel{width:100%;max-width:360px;background:var(--carta);border-radius:20px;padding:14px;box-shadow:0 18px 40px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:10px;max-height:calc(100% - 100px);overflow-y:auto}
 .ap-cab{display:flex;align-items:center;justify-content:space-between;font-size:15px}
 .ap-cab button{border:0;background:var(--suave);color:var(--tinta2);width:30px;height:30px;border-radius:10px;font-size:14px;cursor:pointer}
 .ap-nota{font-size:11.5px;line-height:1.45}
-/* la guía paso a paso puede ser más alta que la pantalla: el panel se desplaza (100px = 84 de arriba + 16 de abajo) */
-.atajo-panel{max-height:calc(100% - 100px);overflow-y:auto}
 .ap-pasos{margin:2px 0 0;padding-left:20px;font-size:12.5px;line-height:1.45;color:var(--tinta)}
 .ap-pasos li{margin:6px 0}
 

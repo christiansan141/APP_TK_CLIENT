@@ -398,20 +398,25 @@ async function abrirPdf(k, n, id = S.ficha && S.ficha.id) {
       html = docHistorial({...base, sesiones, vals}); titulo = 'Historial'; nombre = `Historial_${F.u.nombre}`;
     }
     await document.fonts.ready;
-    return mostrarPdf({hojas: paginar(html, base), titulo, nombre: sinTildes(nombre).replace(/[^\w]+/g, '_') + '.pdf', quien: F.u.nombre});
-  } catch (e) { S.pdf = {error: e.message || 'No se pudo armar el documento.'}; }
-  if (S.p === 'pdf') pintar();
+    mostrarPdf({hojas: paginar(html, base), titulo, nombre: sinTildes(nombre).replace(/[^\w]+/g, '_') + '.pdf', quien: F.u.nombre});
+  } catch (e) {
+    S.pdf = {error: e.message || 'No se pudo armar el documento.'};
+    if (S.p === 'pdf') pintar();
+  }
 }
 // Toda vista previa de un PDF pasa por aquí: se muestra y, en el mismo momento, se empieza a preparar el archivo
 function mostrarPdf(datos) {
   S.pdf = datos;
-  if (S.p === 'pdf') { pintar(); prepararPdf(); }
+  if (S.p === 'pdf') prepararPdf();    // prepararPdf ya pinta la vista con su estado
 }
+// ¿Sigue en pantalla esta vista previa? (si no, no se repinta ni se sigue preparando su PDF)
+const pdfVigente = D => S.p === 'pdf' && S.pdf === D;
 function cargarScript(src) {
   return new Promise((ok, mal) => { if (document.querySelector(`script[src="${src}"]`)) return ok(); const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => { s.remove(); mal(new Error('Sin internet para preparar el PDF')); }; document.head.appendChild(s); });
 }
 // El PDF de verdad: cada hoja carta se dibuja (html2canvas) y se pone en una página tamaño carta (jsPDF)
-async function hacerPdf(hojas, avance) {
+// avance(i, n) avisa la hoja que va; sigue() dice si vale la pena continuar (si no, devuelve null).
+async function hacerPdf(hojas, avance, sigue) {
   await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
   await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
   const zona = document.getElementById('imprimir');
@@ -422,7 +427,8 @@ async function hacerPdf(hojas, avance) {
     const pdf = new jspdf.jsPDF({unit: 'pt', format: 'letter', compress: true});
     const els = [...zona.querySelectorAll('.hoja')];
     for (let i = 0; i < els.length; i++) {
-      avance(i + 1, els.length);              // puede lanzar un error para cancelar (el usuario salió de la vista)
+      if (!sigue()) return null;
+      avance(i + 1, els.length);
       const c = await html2canvas(els[i], {scale: 2, backgroundColor: '#ffffff', logging: false, useCORS: true});
       if (i) pdf.addPage('letter');
       pdf.addImage(c.toDataURL('image/jpeg', .9), 'JPEG', 0, 0, 612, 612 * c.height / c.width);
@@ -434,63 +440,60 @@ async function hacerPdf(hojas, avance) {
 // el menú del celular se abre en ese mismo toque: el iPhone (Safari y Bluefy) solo lo deja abrir justo después de tocar
 // algo, y si antes había que esperar varios segundos preparando el PDF, lo bloqueaba. En iPhone fuera de Safari (Bluefy)
 // las descargas no se pueden guardar: allí «Guardar» también abre el menú, donde está «Guardar en Archivos».
-// Estado de S.pdf: estado = 'preparando' | 'listo' | 'fallo' (sin estado: aún no empieza) · avance = texto del botón ·
-// archivo = el PDF listo · compartiendo = hay un menú abierto (un segundo menú a la vez falla).
+// S.pdf tiene tres formas: {cargando: texto} mientras se traen los datos del equipo · {error: texto} si no se pudo armar
+// el documento · {hojas, titulo, nombre, quien, estado, avance, archivo, fallo, compartiendo} con la vista previa, donde
+// estado = 'preparando' | 'listo' | 'fallo', avance = texto del botón mientras se prepara, archivo = el PDF listo,
+// fallo = por qué no se pudo preparar, compartiendo = hora en que se abrió el menú (un segundo menú a la vez falla).
 let colaPdf = Promise.resolve();
 async function prepararPdf() {
   const D = S.pdf;
   if (!D || !D.hojas || D.estado === 'preparando' || D.estado === 'listo') return;
-  Object.assign(D, {estado: 'preparando', avance: 'Preparando el PDF…', fallo: null});
-  sigue(D);
+  Object.assign(D, {estado: 'preparando', avance: 'Preparando el PDF…'});
+  if (pdfVigente(D)) pintar();         // también quita el aviso de un fallo anterior
   try {
     // de a uno: hacerPdf dibuja en una sola zona oculta (#imprimir); dos a la vez se mezclarían
-    const turno = colaPdf.then(() => hacerPdf(D.hojas, (i, n) => {
-      if (S.pdf !== D || S.p !== 'pdf') throw new Error('cancelado');   // el usuario salió: no se sigue gastando el celular
-      D.avance = `Preparando la hoja ${i} de ${n}…`; sigue(D);
-    }));
+    const turno = colaPdf.then(() => hacerPdf(D.hojas,
+      (i, n) => { D.avance = `Preparando la hoja ${i} de ${n}…`; if (pdfVigente(D)) pintar(); },
+      () => pdfVigente(D)));           // el usuario salió: no se sigue gastando el celular
     colaPdf = turno.catch(() => {});
-    D.archivo = new File([await turno], D.nombre, {type: 'application/pdf'});
+    const blob = await turno;
+    if (!blob) { D.estado = null; return; }   // cancelado (volver a abrir un documento siempre arma uno nuevo)
+    D.archivo = new File([blob], D.nombre, {type: 'application/pdf'});
     D.estado = 'listo';
   } catch (e) {
-    if (S.pdf !== D || S.p !== 'pdf') { D.estado = null; return; }     // cancelado: si vuelve, empieza de nuevo
     Object.assign(D, {estado: 'fallo', fallo: e.message || String(e)});
   }
-  if (S.p === 'pdf' && S.pdf === D) pintar();
-}
-// Solo cambia el texto del botón (sin repintar: la vista previa no vuelve arriba mientras se prepara)
-function sigue(D) {
-  if (S.p !== 'pdf' || S.pdf !== D) return;
-  const b = document.querySelector('[data-act="compartir"]');
-  if (b) b.innerHTML = ic('share', 18) + esc(D.avance);
+  if (pdfVigente(D)) pintar();
 }
 function entregarPdf(compartir) {
   const D = S.pdf;
-  if (!D || !D.hojas) return;
-  if (D.estado !== 'listo') return tostada('Un momento: el PDF todavía se está preparando.');
-  if (D.compartiendo) return;
+  if (!D || D.estado !== 'listo') return tostada('Un momento: el PDF todavía se está preparando.');
+  // si el menú quedó abierto (o el celular nunca avisó que se cerró), a los 30 s se deja abrir otra vez
+  if (D.compartiendo && Date.now() - D.compartiendo < 30000) return tostada('El menú para compartir ya está abierto.');
   const f = D.archivo;
   if ((compartir || esIphone()) && navigator.canShare && navigator.canShare({files: [f]})) {
     // sin esperas antes de esta línea: el menú se abre dentro del mismo toque
-    D.compartiendo = true;
+    D.compartiendo = Date.now();
     navigator.share({files: [f], title: D.nombre})
       .catch(e => {
         if (e && e.name !== 'AbortError' && e.name !== 'InvalidStateError')   // cerrar el menú no es un error
           tostada('No se pudo abrir el menú para compartir. <button class="anotar" data-act="abrirpdf">Abrir el PDF</button>', 8000, true);
       })
-      .finally(() => { D.compartiendo = false; });
+      .finally(() => { D.compartiendo = 0; });
     return;
   }
   if (esIphone()) return abrirPdfAparte(D);
   const url = URL.createObjectURL(f), a = document.createElement('a');
   a.href = url; a.download = D.nombre; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  setTimeout(() => URL.revokeObjectURL(url), PDF_URL_MS);
   tostada(compartir ? 'Este navegador no deja compartir: el PDF se guardó en Descargas.' : 'PDF guardado en Descargas.');
 }
 // Último recurso: el PDF en otra pestaña (desde ahí el botón de compartir del navegador lo guarda). Solo se llama dentro de
 // un toque, y nunca reemplaza la página de la app: eso cortaría el Bluetooth y perdería lo que se estaba haciendo.
+const PDF_URL_MS = 10 * 60 * 1000;   // cuánto vive el enlace al PDF abierto aparte (para guardarlo desde esa pestaña)
 function abrirPdfAparte(D) {
   const url = URL.createObjectURL(D.archivo);
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  setTimeout(() => URL.revokeObjectURL(url), PDF_URL_MS);
   if (window.open(url, '_blank')) tostada('Se abrió el PDF en otra pestaña: use el botón de compartir del navegador para guardarlo.', 7000);
   else tostada('Este navegador no deja abrir el PDF. Pruebe en Chrome (Android) o en Safari.', 7000, true);
 }
@@ -708,6 +711,7 @@ const MARCA_K = '908.96 695.6 634.65 339.57 894.35 56.34 696.18 56.34 421.3 351.
 const MARCA_FIRMA = 'M214,346 C120,392 64,458 64,530 C64,660 240,766 463,766 C560,766 645,746 712,711';   // la curva TK como un trazo
 const ADELANTO_SONIDO = .2;                       // s que el sonido va antes que la animación (sube si aún se oye tarde)
 const NOTAS_INICIO_S = 1.42;                      // en inicio.mp3 la primera nota suena a los 1,42 s (antes, silencio)
+const MARGEN_NOTA_S = .1;                         // se arranca un poco antes para no cortar el golpe de la primera nota
 // El sonido de inicio por su ganancia hacia el parlante; devuelve la fuente (para arrancarla) y el volumen (para apagarlo)
 function sonidoInicio(ctx, buf) {
   const fuente = ctx.createBufferSource(), volumen = ctx.createGain();
@@ -766,13 +770,13 @@ function inicioAnimado() {
       const buf = await new Promise((ok, mal) => ctx.decodeAudioData(datos, ok, mal));
       if (ctx.state !== 'running') await Promise.race([ctx.resume(), new Promise(r => setTimeout(r, 250))]);
       if (ctx.state !== 'running') { sonidoParaDespues(ctx, buf); return arrancar(null); }   // no deja sonar: suena al conectar
-      const sonido = sonidoInicio(ctx, buf), fuente = sonido.fuente;
-      volumen = sonido.volumen;
+      let fuente;
+      ({fuente, volumen} = sonidoInicio(ctx, buf));
       cuadro(() => arrancar(fuente));                        // un cuadro más: la intro ya está pintada
     } catch (_) { arrancar(null); }
   })();
 }
-// iPhone (Safari y Bluefy): la intro salió en silencio. El sonido queda listo; el primer toque que de verdad lo
+// El navegador no dejó sonar la intro (pasa siempre en iPhone, a veces en Android). El sonido queda listo; el primer toque que de verdad lo
 // desbloquea quita los oyentes, y el pi-pi-pi suena una vez cuando se conecta el equipo. Al terminar se apaga el audio.
 let sonidoPendiente = null;
 function sonidoParaDespues(ctx, buf) {
@@ -792,7 +796,7 @@ function sonarAlConectar() {
     s.sonado = true;
     const {fuente} = sonidoInicio(s.ctx, s.buf);
     fuente.onended = () => s.ctx.close().catch(() => {});
-    fuente.start(0, NOTAS_INICIO_S - .1);     // sin el silencio del principio (en la intro acompaña a la animación)
+    fuente.start(0, NOTAS_INICIO_S - MARGEN_NOTA_S);   // sin el silencio del principio (en la intro acompaña a la animación)
   }).catch(() => {});
 }
 
@@ -803,21 +807,22 @@ function temaPorHora() {
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.content = noche ? '#100F26' : '#22204F';
 }
+// Zonas que, al repintar la misma pantalla, quedan donde el usuario las dejó
+const DESPLAZABLES = ['.cuerpo', '.mini-pdf', '.atajo-panel'];
 function pintar() {
   const cel = document.getElementById('cel-C');
-  const c0 = cel.querySelector('.cuerpo'), scroll = c0 ? c0.scrollTop : 0;
+  const desplazado = DESPLAZABLES.map(q => { const e = cel.querySelector(q); return e ? e.scrollTop : 0; });
   const foco = document.activeElement && document.activeElement.dataset ? (document.activeElement.dataset.buscar !== undefined ? 'buscar' : document.activeElement.dataset.cons) : null;
   const pos = foco ? document.activeElement.selectionStart : 0;
-  const DESPLAZABLES = ['.mini-pdf', '.atajo-panel'], desplazado = DESPLAZABLES.map(q => { const e = cel.querySelector(q); return e ? e.scrollTop : 0; });
   cel.innerHTML = marco();
-  if (S.p === S.ultimo && cel.querySelector('.cuerpo')) cel.querySelector('.cuerpo').scrollTop = scroll;
+  const mismaPantalla = S.p === S.ultimo;
   S.ultimo = S.p;
   if (cel.querySelector('[data-ft]')) prepararFirmaTotal(cel);
   if (cel.querySelector('[data-ajuste]')) prepararAjuste(cel);
   if (cel.querySelector('[data-recorte]')) prepararRecorte(cel);
   const mini = cel.querySelector('[data-mini]');
   if (mini && S.pdf && S.pdf.hojas) miniatura(mini, S.pdf.hojas, mini.clientWidth);
-  DESPLAZABLES.forEach((q, i) => { const e = cel.querySelector(q); if (e && desplazado[i]) e.scrollTop = desplazado[i]; });
+  if (mismaPantalla) DESPLAZABLES.forEach((q, i) => { const e = cel.querySelector(q); if (e && desplazado[i]) e.scrollTop = desplazado[i]; });
   if (foco) { const n = foco === 'buscar' ? cel.querySelector('[data-buscar]') : cel.querySelector(`[data-cons="${foco}"]`); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) { /* tipo sin cursor */ } } }
 }
 
@@ -861,8 +866,8 @@ function accion(a) {
   else if (a === 'pdfleer') abrirLectura();
   else if (a === 'compartir') entregarPdf(true);
   else if (a === 'guardar') entregarPdf(false);
-  else if (a === 'reintentarpdf') { if (S.pdf) { S.pdf.estado = null; prepararPdf(); } }
-  else if (a === 'abrirpdf') { if (S.pdf && S.pdf.archivo) abrirPdfAparte(S.pdf); }
+  else if (a === 'reintentarpdf') { if (S.pdf && S.pdf.estado === 'fallo') prepararPdf(); }
+  else if (a === 'abrirpdf') { if (S.p === 'pdf' && S.pdf && S.pdf.estado === 'listo') abrirPdfAparte(S.pdf); }
   else if (a === 'otrafoto') elegirFoto();
   else if (a === 'usarlogo') usarLogo();
   else if (a === 'guardarcons') guardarConsultorio();
