@@ -6,7 +6,7 @@ const VERSION_APP = '1.1 · 06/11/2026';   // súbala en cada publicación (el e
 const URL_DOCUMENTOS = 'https://drive.google.com/drive/folders/1FRbFGo9VDIqJsnvl2BH4vQDcxtFaq83v';
 const S = {p: 'conectar', con: false, eq: null, buscando: false, hora: null, fw: '', clave: '', claveMal: false, quedan: 3, finEspera: 0,
   pend: false, nuevo: null, firmaPaso: 0, checks: [false, false], lienzoTotal: false, trazosTmp: [], trazos: [], aj: null, firmado: null, enviando: false,
-  usuarios: null, buscar: '', ficha: null, pdf: null, cons: {nombre: '', prestador: '', nit: '', tel: '', correo: ''}, consLeido: false, logo: '', rec: null, toast: null, ultimo: null, prev: null};
+  usuarios: null, buscar: '', ficha: null, pdf: null, cons: {nombre: '', prestador: '', nit: '', tel: '', correo: ''}, consLeido: false, logo: '', rec: null, atajo: false, toast: null, ultimo: null, prev: null};
 const CAMPOS_CONS = ['nombre', 'prestador', 'nit', 'tel', 'correo'];
 
 // ---- utilidades ---------------------------------------------------------------------------------------------------------------
@@ -110,7 +110,7 @@ async function reconectar(eq) {
 // La reconexión de eq termina sin éxito porque hay otro equipo: solo se limpia la marca si sigue siendo la suya
 function dejarDeReconectar(eq) { if (S.reconectando === eq) { S.reconectando = false; pintar(); } }
 function perderConexion(motivo) {
-  Object.assign(S, {con: false, p: 'conectar', buscando: false, pend: false, lienzoTotal: false, hora: null, usuarios: null, ficha: null, pdf: null, consLeido: false, reconectando: false});
+  Object.assign(S, {con: false, p: 'conectar', buscando: false, pend: false, lienzoTotal: false, atajo: false, hora: null, usuarios: null, ficha: null, pdf: null, consLeido: false, reconectando: false});
   if (S.eq) { S.eq.alCortar = () => {}; S.eq.desconectar(); }
   S.eq = null;
   if (motivo) tostada(motivo, 5500); else pintar();
@@ -436,39 +436,43 @@ const DIR_APP = location.origin + location.pathname;          // la dirección d
 const ENLACE_BLUEFY = dir => 'bluefy://open?url=' + encodeURIComponent(dir);
 const CON_BLUEFY = 'tkapp-tiene-bluefy';      // este iPhone ya abrió la app en Bluefy: al escanear, salta directo
 // Atajo de iPhone: el enlace de iCloud del atajo «TK_APP» (Atajos → Abrir URL bluefy://open?url=…), hecho por Christian.
-// Con él, la tarjeta de Inicio ofrece dejar TK_APP en la pantalla de inicio del iPhone. Vacío = la tarjeta no sale.
+// Con él, botonAtajo() pone un ícono pequeño en la barra (solo en iPhone con Bluefy). Vacío = no sale. Es el mismo enlace
+// de app/ATAJO_IPHONE.txt: armar_producto.ps1 revisa que coincidan.
 const ATAJO_ICLOUD = 'https://www.icloud.com/shortcuts/d45eeb06b8834fb69a976a0e4fbb6b0f';   // compartido el 06/11/2026
-// Los dos enlaces se abren en Safari (x-safari-https://, iOS 17 o más): desde Bluefy, Atajos no recibe el enlace de iCloud
-// («No se pudo conectar a la galería»). El logo va aparte porque Apple no comparte la foto del ícono con el atajo.
+// El atajo se abre en Safari (x-safari-https://, iOS 17 o más): desde Bluefy, Atajos no recibe el enlace de iCloud
+// («No se pudo conectar a la galería»). El ícono de la app va aparte, porque Apple no comparte con el atajo la foto que
+// se usa en la pantalla de inicio: sale por el menú de compartir («Guardar imagen») o, si no se puede, por Safari.
 const enSafari = url => 'x-safari-' + url;
 const conAtajo = () => !!ATAJO_ICLOUD && esIphone() && EquipoBle.disponible();     // iPhone con la app en Bluefy
-// Un ícono pequeño arriba a la derecha (no estorba): abre el panel con «Agregar atajo» y «Guardar imagen». Es opcional.
 const botonAtajo = () => conAtajo() ? `<button class="atajo-btn" data-act="atajo" aria-label="Acceso directo en el iPhone">${ic('down', 17, 2.4)}</button>` : '';
+// El panel: «Agregar atajo» y «Guardar imagen». data-act="nada" en el recuadro: tocar dentro no lo cierra (sí el fondo).
 function panelAtajo() {
   if (!S.atajo) return '';
-  prepararLogoParaFotos();
   return `<div class="atajo-fondo" data-act="atajocerrar"><div class="atajo-panel" data-act="nada">
     <div class="ap-cab"><b>Acceso directo en el iPhone</b><button data-act="atajocerrar" aria-label="Cerrar">✕</button></div>
-    <button class="btn pri" data-act="agregaratajo">${ic('down', 18)}Agregar atajo</button>
-    <button class="btn sec" data-act="guardarlogo">${ic('down', 18)}Guardar imagen</button>
+    <button class="btn pri" data-act="agregaratajo">${ic('share', 18)}Agregar atajo</button>
+    <button class="btn sec" data-act="guardaricono">${ic('down', 18)}Guardar imagen</button>
     <div class="sub ap-nota">Después, en Atajos: mantenga presionado <b>TK_APP</b> → <b>Compartir</b> → <b>Agregar a pantalla de inicio</b> y elija la imagen como ícono.</div>
   </div></div>`;
 }
-// El logo se baja apenas se abre el panel: así, al tocar el botón, el menú de compartir del iPhone se abre en el mismo toque
-// (con una espera en medio, iOS lo bloquea) y ahí está «Guardar imagen», que lo deja en Fotos.
-const URL_LOGO = () => new URL('icono-512.png', location.href).href;
-function prepararLogoParaFotos() {
-  if (S._logoFoto !== undefined) return;
-  S._logoFoto = null;
-  fetch(URL_LOGO()).then(r => r.blob()).then(b => { S._logoFoto = new File([b], 'TK_APP.png', {type: 'image/png'}); }).catch(() => {});
+// El ícono de la app (no el logo del consultorio) se baja al abrir el panel: así, al tocar «Guardar imagen», el menú de
+// compartir del iPhone se abre en el mismo toque (con una espera en medio, iOS lo bloquea). Si la descarga falla, se
+// vuelve a intentar la próxima vez que se abra el panel.
+const URL_ICONO = () => new URL('icono-512.png', location.href).href;
+function prepararIcono() {
+  if (S._iconoFoto !== undefined) return;
+  S._iconoFoto = null;
+  fetch(URL_ICONO()).then(r => r.ok ? r.blob() : Promise.reject(new Error('sin ícono')))
+    .then(b => { S._iconoFoto = new File([b], 'TK_APP.png', {type: 'image/png'}); })
+    .catch(() => { S._iconoFoto = undefined; });
 }
-function guardarLogo() {
-  const f = S._logoFoto;
+function guardarIcono() {
+  const f = S._iconoFoto;
   if (f && navigator.canShare && navigator.canShare({files: [f]})) {
     navigator.share({files: [f], title: 'TK_APP'}).catch(() => {});   // cancelar el menú no es un error
     return;
   }
-  location.href = enSafari(URL_LOGO());      // el navegador no comparte archivos: se abre la imagen en Safari
+  location.href = enSafari(URL_ICONO());     // el navegador no comparte archivos: se abre la imagen en Safari
 }
 function abrirEnBluefy() { guardar(CON_BLUEFY, '1'); location.href = ENLACE_BLUEFY(DIR_APP); }
 const esIphone = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -720,10 +724,10 @@ function accion(a) {
     pintar();
   }
   else if (a === 'bluefy') abrirEnBluefy();
-  else if (a === 'atajo') { S.atajo = true; pintar(); }
+  else if (a === 'atajo') { S.atajo = true; prepararIcono(); pintar(); }
   else if (a === 'atajocerrar') { S.atajo = false; pintar(); }
   else if (a === 'agregaratajo') location.href = enSafari(ATAJO_ICLOUD);
-  else if (a === 'guardarlogo') guardarLogo();
+  else if (a === 'guardaricono') guardarIcono();
   else if (a === 'copiar') {
     (navigator.clipboard ? navigator.clipboard.writeText(DIR_APP) : Promise.reject()).then(() => tostada('Dirección copiada. Ábrala en Bluefy y péguela arriba.'))
       .catch(() => tostada('Copie a mano esta dirección: ' + esc(DIR_APP), 8000, true));
