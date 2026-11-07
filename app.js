@@ -438,24 +438,23 @@ const CON_BLUEFY = 'tkapp-tiene-bluefy';      // este iPhone ya abrió la app en
 // Atajo de iPhone: el enlace de iCloud del atajo «TK_APP» (Atajos → Abrir URL bluefy://open?url=…), hecho por Christian.
 // Con él, la tarjeta de Inicio ofrece dejar TK_APP en la pantalla de inicio del iPhone. Vacío = la tarjeta no sale.
 const ATAJO_ICLOUD = 'https://www.icloud.com/shortcuts/d45eeb06b8834fb69a976a0e4fbb6b0f';   // compartido el 06/11/2026
-const ATAJO_LISTO = 'tkapp-atajo-listo';      // este iPhone ya lo agregó o no lo quiere: no se vuelve a ofrecer
 // Los dos enlaces se abren en Safari (x-safari-https://, iOS 17 o más): desde Bluefy, Atajos no recibe el enlace de iCloud
 // («No se pudo conectar a la galería»). El logo va aparte porque Apple no comparte la foto del ícono con el atajo.
 const enSafari = url => 'x-safari-' + url;
-function tarjetaAtajo() {
-  if (!ATAJO_ICLOUD || !esIphone() || !EquipoBle.disponible() || leer(ATAJO_LISTO)) return '';
+const conAtajo = () => !!ATAJO_ICLOUD && esIphone() && EquipoBle.disponible();     // iPhone con la app en Bluefy
+// Un ícono pequeño arriba a la derecha (no estorba): abre el panel con «Agregar atajo» y «Guardar imagen». Es opcional.
+const botonAtajo = () => conAtajo() ? `<button class="atajo-btn" data-act="atajo" aria-label="Acceso directo en el iPhone">${ic('down', 17, 2.4)}</button>` : '';
+function panelAtajo() {
+  if (!S.atajo) return '';
   prepararLogoParaFotos();
-  return `<div class="tarj atajo"><span class="eti2">iPhone · acceso directo</span>
-    <div class="at-tit">Deje TK_APP en su pantalla de inicio</div>
-    <div class="sub">Así la abre con un toque, directo en Bluefy, sin escanear ni buscar el enlace.</div>
-    <div class="at-paso"><b>1</b><div>Toque el botón: se abre en Safari. Toque <b>Obtener atajo</b> y luego <b>Agregar atajo</b>.</div></div>
-    <a class="btn pri" style="text-decoration:none" href="${enSafari(ATAJO_ICLOUD)}">${ic('down', 18)}Agregar el atajo</a>
-    <div class="at-paso"><b>2</b><div>Para que tenga el logo: toque el botón y elija <b>Guardar imagen</b>. (Si se abre la imagen, manténgala presionada → <b>Añadir a Fotos</b>.)</div></div>
-    <button class="btn sec" data-act="guardarlogo">${ic('down', 18)}Guardar el logo en Fotos</button>
-    <div class="at-paso"><b>3</b><div>En Atajos, mantenga presionado <b>TK_APP</b> → <b>Compartir</b> → <b>Agregar a pantalla de inicio</b>. Toque el ícono pequeño → <b>Elegir foto</b> → el logo → <b>Agregar</b>.</div></div>
-    <button class="anotar at-listo" data-act="atajolisto">Ya lo tengo · no mostrar más</button></div>`;
+  return `<div class="atajo-fondo" data-act="atajocerrar"><div class="atajo-panel" data-act="nada">
+    <div class="ap-cab"><b>Acceso directo en el iPhone</b><button data-act="atajocerrar" aria-label="Cerrar">✕</button></div>
+    <button class="btn pri" data-act="agregaratajo">${ic('down', 18)}Agregar atajo</button>
+    <button class="btn sec" data-act="guardarlogo">${ic('down', 18)}Guardar imagen</button>
+    <div class="sub ap-nota">Después, en Atajos: mantenga presionado <b>TK_APP</b> → <b>Compartir</b> → <b>Agregar a pantalla de inicio</b> y elija la imagen como ícono.</div>
+  </div></div>`;
 }
-// El logo se baja apenas sale la tarjeta: así, al tocar el botón, el menú de compartir del iPhone se abre en el mismo toque
+// El logo se baja apenas se abre el panel: así, al tocar el botón, el menú de compartir del iPhone se abre en el mismo toque
 // (con una espera en medio, iOS lo bloquea) y ahí está «Guardar imagen», que lo deja en Fotos.
 const URL_LOGO = () => new URL('icono-512.png', location.href).href;
 function prepararLogoParaFotos() {
@@ -513,7 +512,7 @@ function pantallaClave() {
     <div class="sub" style="text-align:center;margin:12px 26px 0">Con la contraseña correcta este celular queda <b>de confianza</b>: no se la pide otra vez mientras se conecte al menos cada 5 días.</div>`;
 }
 function pantallaInicio() {
-  return `${horaTarj()}${tarjetaAtajo()}
+  return `${horaTarj()}
     <div class="baldosas">
       ${S.pend ? `<div class="bal grande verde" data-go="firma"><div class="ic">${ic('pen', 22)}</div><div><b>Firmar la autorización</b><span>${esc(S.nuevo.nombre)} espera en el equipo</span></div></div>` : ''}
       <div class="bal grande" data-go="usuarios"><div class="ic">${ic('users', 22)}</div><div><b>Usuarios y PDF</b><span>Buscar, ver la ficha y sacar documentos</span></div></div>
@@ -600,11 +599,11 @@ function cuerpo() {
 }
 function marco() {      // arriba la barra de A (marca y conexión); debajo el paso a paso de C
   const tst = S.toast ? `<div class="tostada">${ic(S.toastError ? 'alerta' : 'check', 18, 2.6)}<div>${S.toast}</div></div>` : '';
-  const barra = `<div class="barra"><div class="marca-app"><div class="lg">${LOGO_TK}</div><div><b>TK_APP</b><small>INGENIERÍA PARA LA ESTÉTICA</small></div></div>
+  const barra = `<div class="barra"><div class="marca-app"><div class="lg">${LOGO_TK}</div><div><b>TK_APP</b><small>INGENIERÍA PARA LA ESTÉTICA</small></div>${botonAtajo()}</div>
       <div class="conx ${S.con ? 'si' : ''}" ${S.con ? '' : 'data-go="conectar"'}><span class="pt"></span>${S.con ? `${esc(S.eq.serie)} conectado` : S.reconectando ? 'Reconectando…' : 'Sin equipo conectado'}<span class="der">${S.con ? (S.hora ? 'Hora ' + ahora().h : 'Bluetooth') : S.reconectando ? '' : 'Toque para conectar'}</span></div></div>`;
   const volver = !['inicio', 'conectar'].includes(S.p) ? `<button class="volver" data-act="atras">${ic('back', 16)}${['pdf', 'logo', 'ficha'].includes(S.p) ? 'Volver' : S.p === 'clave' ? 'Cancelar' : 'Inicio'}</button>` : '';
   const titulo = S.p === 'inicio' ? `<div class="hola-t"><b>${esc(S.cons.nombre) || 'TK_APP'}</b><small>¿Qué quiere hacer?</small></div>` : S.p === 'conectar' || S.p === 'clave' ? '' : `<h2>${TITULOS[S.p]}</h2>`;
-  return `<div class="app vA vF">${barra}<div class="top">${volver}${titulo}</div><div class="cuerpo">${cuerpo()}</div>${S.lienzoTotal ? capaFirma() : ''}${tst}</div>`;
+  return `<div class="app vA vF">${barra}<div class="top">${volver}${titulo}</div><div class="cuerpo">${cuerpo()}</div>${S.lienzoTotal ? capaFirma() : ''}${panelAtajo()}${tst}</div>`;
 }
 // ---- animación de inicio (propuesta C · firma, elegida el 06/11/2026) --------------------------------------------------------
 // Una pluma de luz traza la curva TK como una firma, la T y la K suben detrás y sale «TK_APP». Unos 4 s; tocar la pantalla
@@ -721,7 +720,9 @@ function accion(a) {
     pintar();
   }
   else if (a === 'bluefy') abrirEnBluefy();
-  else if (a === 'atajolisto') { guardar(ATAJO_LISTO, '1'); pintar(); }
+  else if (a === 'atajo') { S.atajo = true; pintar(); }
+  else if (a === 'atajocerrar') { S.atajo = false; pintar(); }
+  else if (a === 'agregaratajo') location.href = enSafari(ATAJO_ICLOUD);
   else if (a === 'guardarlogo') guardarLogo();
   else if (a === 'copiar') {
     (navigator.clipboard ? navigator.clipboard.writeText(DIR_APP) : Promise.reject()).then(() => tostada('Dirección copiada. Ábrala en Bluefy y péguela arriba.'))
