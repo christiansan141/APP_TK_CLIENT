@@ -344,3 +344,11 @@ html.noche .doc, html.noche .mini-pdf, html.noche .miniatura, html.noche .papel,
 .ap-cab{display:flex;align-items:center;justify-content:space-between;font-size:15px}
 .ap-cab button{border:0;background:var(--suave);color:var(--tinta2);width:30px;height:30px;border-radius:10px;font-size:14px;cursor:pointer}
 .ap-nota{font-size:11.5px;line-height:1.45}
+
+/* Sin zoom en el iPhone (Bluefy): dos toques rápidos en el teclado de la contraseña hacían «doble toque para acercar» y la
+   pantalla se descuadraba. touch-action: manipulation deja tocar y desplazar, pero no ese zoom. Y en iPhone un campo de
+   texto con letra menor de 16 px acerca la pantalla al tocarlo: allí los campos van a 16 px. */
+html, body, button, a, input, .teclado button, [data-act], [data-go], [data-tecla] { touch-action: manipulation; }
+@supports (-webkit-touch-callout: none) {
+  input, textarea, select { font-size: 16px !important; }
+}
