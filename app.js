@@ -821,6 +821,23 @@ function montar() {
 
 // iPhone que ya abrió la app en Bluefy: al escanear el QR o tocar el NFC (abre Safari), salta directo a Bluefy
 if (esIphone() && !EquipoBle.disponible() && leer(CON_BLUEFY)) location.href = ENLACE_BLUEFY(DIR_APP);
+// Sin zoom en el iPhone, también desde el código (Bluefy no siempre respeta user-scalable=no): se bloquean el pellizco y el
+// doble toque. El segundo toque rápido no se pierde: se convierte en un clic normal (así la contraseña se teclea rápido).
+// Las zonas que usan sus propios gestos (firma, ajuste de la firma, recorte del logo) y los campos de texto quedan libres.
+const ZONAS_LIBRES = 'input, textarea, select, [data-ft], [data-ajuste], [data-recorte]';
+function bloquearZoom() {
+  if (!esIphone()) return;
+  const libre = e => e.target && e.target.closest && e.target.closest(ZONAS_LIBRES);
+  for (const g of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(g, e => { if (!libre(e)) e.preventDefault(); }, {passive: false});
+  document.addEventListener('touchmove', e => { if (e.touches.length > 1 && !libre(e)) e.preventDefault(); }, {passive: false});
+  let ultimo = 0;
+  document.addEventListener('touchend', e => {
+    const ahora = Date.now();
+    if (ahora - ultimo < 350 && !libre(e)) { e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true})); }
+    ultimo = ahora;
+  }, {passive: false});
+}
+bloquearZoom();
 montar();
 inicioAnimado();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
