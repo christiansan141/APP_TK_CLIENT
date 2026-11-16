@@ -3,11 +3,18 @@
 //   desde el 06/11/2026). Forma: conectar(), pedir(mensaje) → respuesta, enviar(mensaje), y avisa con alEvento y alCortar.
 'use strict';
 
+// Los dos equipos que maneja la app, por el comienzo de su nombre Bluetooth. El modelo va en la app y en los PDF.
+const MODELOS = {
+  'SKIN-': {nombre: 'SKIN TRANSDERM PLUS+', tecnologias: 'ultrasonido, electroporación y corriente galvánica'},
+  'BIFDALL-': {nombre: 'SKIN TRANSDERM', tecnologias: 'electroporación y corriente galvánica'},
+};
+const PREFIJOS_EQUIPO = Object.keys(MODELOS);
+const modeloDe = serie => MODELOS[PREFIJOS_EQUIPO.find(p => String(serie || '').startsWith(p))] || MODELOS['SKIN-'];
 const NUS = '6e400001-b5a3-f393-e0a9-e50e24dcca9e', NUS_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e', NUS_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 const AVISOS = ['pide_hora', 'firma_pedida', 'firma_cancelada'];
 
 class EquipoBase {
-  constructor() { this.alEvento = () => {}; this.alCortar = () => {}; this.esperando = []; this.serie = ''; }
+  constructor() { this.alEvento = () => {}; this.alCortar = () => {}; this.esperando = []; this.serie = ''; this.modelo = modeloDe(''); }
   // Espera la respuesta del mismo tipo (el equipo atiende un mensaje a la vez, en orden)
   pedir(m, ms = 20000) {
     return new Promise((ok, mal) => {
@@ -31,11 +38,13 @@ class EquipoBase {
 class EquipoBle extends EquipoBase {
   static disponible() { return !!(navigator.bluetooth && navigator.bluetooth.requestDevice); }
   async conectar() {
-    // La lista la dibuja el celular (Chrome o Bluefy): ahí aparece SKIN-… o «SKIN-… · ocupado»
-    this.disp = await navigator.bluetooth.requestDevice({filters: [{namePrefix: 'SKIN-'}], optionalServices: [NUS]});
+    // La lista la dibuja el celular (Chrome o Bluefy): ahí aparece SKIN-… (SKIN TRANSDERM PLUS+) o BIFDALL-… (SKIN TRANSDERM),
+    // o «… · ocupado»
+    this.disp = await navigator.bluetooth.requestDevice({filters: PREFIJOS_EQUIPO.map(namePrefix => ({namePrefix})), optionalServices: [NUS]});
     const nombre = this.disp.name || '';
     if (/ocupado/i.test(nombre)) { const e = new Error('ocupado'); e.ocupado = true; throw e; }
     this.serie = nombre.trim();
+    this.modelo = modeloDe(this.serie);          // SKIN TRANSDERM PLUS+ o SKIN TRANSDERM, por el nombre Bluetooth
     this.disp.addEventListener('gattserverdisconnected', () => this.cortado());
     await this.abrir();
   }

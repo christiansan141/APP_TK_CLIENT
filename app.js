@@ -2,7 +2,7 @@
 // Datos: los pide al equipo cada vez (equipo.js); no guarda datos de usuarios. Solo recuerda el pase de confianza de cada equipo.
 'use strict';
 
-const VERSION_APP = '1.1 · 06/11/2026';   // súbala en cada publicación (el equipo la recibe en «hola»)
+const VERSION_APP = '1.2 · 16/11/2026';   // súbala en cada publicación (el equipo la recibe en «hola»)
 const URL_DOCUMENTOS = 'https://drive.google.com/drive/folders/1FRbFGo9VDIqJsnvl2BH4vQDcxtFaq83v';
 const S = {p: 'conectar', con: false, eq: null, buscando: false, hora: null, fw: '', clave: '', claveMal: false, quedan: 3, finEspera: 0,
   pend: false, nuevo: null, firmaPaso: 0, checks: [false, false], lienzoTotal: false, trazosTmp: [], trazos: [], aj: null, firmado: null, enviando: false,
@@ -48,6 +48,7 @@ async function buscarEquipo() {
     return;
   }
   S.eq = eq;
+  S.modelo = eq.modelo;          // queda aunque se corte: los PDF y la autorización llevan el modelo del último equipo
   eq.alEvento = alAviso;
   eq.alCortar = () => { if (S.eq === eq) reconectar(eq); };
   try {
@@ -375,7 +376,7 @@ async function abrirPdf(k, n, id = S.ficha && S.ficha.id) {
   try {
     if (!await leerConsultorio()) throw new Error('No se pudieron leer los datos del consultorio del equipo (¿está ejecutando?). Vuelva a intentar en un momento.');
     if (!S.ficha || S.ficha.id !== id || !S.ficha.u) { await abrirFicha(id); S.p = 'pdf'; }
-    const F = S.ficha, base = {u: F.u, cons: S.cons, logo: S.logo};
+    const F = S.ficha, base = {u: F.u, cons: S.cons, logo: S.logo, modelo: S.modelo};
     let html, titulo, nombre;
     if (k === 'ci') {
       const firma = await archivo(id, 'firma.sig');
@@ -582,7 +583,7 @@ function pantallaConectar() {
   return `<div style="padding:4px 0 10px;text-align:center">
     <div class="ble">${S.buscando ? '<i></i><i></i><i></i>' : ''}<b>${ic('bt', 30, 2.2)}</b></div>
     <h3 style="margin:8px 0 4px;font-size:18px">${S.buscando ? 'Conectando…' : 'Conecte el equipo'}</h3>
-    <p class="sub" style="margin:0 28px 14px">${S.buscando ? 'Elija su equipo SKIN en la lista del celular.' : ble ? 'Prenda el SKIN TRANSDERM PLUS+ y active el Bluetooth del celular.' : 'Este navegador no tiene Bluetooth. En Android use Chrome.'}</p>
+    <p class="sub" style="margin:0 28px 14px">${S.buscando ? 'Elija su equipo en la lista del celular.' : ble ? 'Prenda el equipo SKIN TRANSDERM y active el Bluetooth del celular.' : 'Este navegador no tiene Bluetooth. En Android use Chrome.'}</p>
     ${S.buscando || !ble ? '' : `<div style="padding:4px 18px 0"><button class="btn ver btn-buscar" data-act="buscar">${ic('bt', 22)}Buscar equipo</button></div>`}
     </div>
     <div class="sub" style="text-align:center;margin:10px 24px 0">El equipo atiende un solo celular a la vez. Si en la lista sale «ocupado», otro celular lo tiene conectado.</div>`;
@@ -596,7 +597,7 @@ function pantallaClave() {
   const tecla = k => k === '' ? '<span></span>' : `<button data-tecla="${k}" ${espera ? 'disabled' : ''}>${k === '⌫' ? ic('back', 20) : k}</button>`;
   return `<div style="text-align:center;padding:0 22px">
       <div class="candado">${ic('lock', 26)}</div>
-      <h3 style="margin:10px 0 2px;font-size:18px">Contraseña del equipo</h3><div class="sub"><b style="color:var(--tinta)">${esc(S.eq ? S.eq.serie : '')}</b> · SKIN TRANSDERM PLUS+</div>
+      <h3 style="margin:10px 0 2px;font-size:18px">Contraseña del equipo</h3><div class="sub"><b style="color:var(--tinta)">${esc(S.eq ? S.eq.serie : '')}</b> · ${S.modelo ? S.modelo.nombre : ''}</div>
       <div class="clave-cajas ${S.claveMal ? 'sacude' : ''}">${cajas}</div>
       <div class="sub clave-msg">${msg}</div></div>
     <div class="teclado">${['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map(tecla).join('')}</div>
@@ -877,7 +878,7 @@ function accion(a) {
 // «Leer el documento completo» antes de firmar: el CI con los datos del que va a firmar, sin firma todavía
 function abrirLectura() {
   S.prev = 'firma'; S.p = 'pdf';
-  const base = {u: {id: 0, nombre: S.nuevo.nombre, cc: S.nuevo.cc}, cons: S.cons, logo: S.logo};
+  const base = {u: {id: 0, nombre: S.nuevo.nombre, cc: S.nuevo.cc}, cons: S.cons, logo: S.logo, modelo: S.modelo};
   const a = ahora();
   mostrarPdf({hojas: paginar(docCI({...base, ci: {fecha: `${a.f} · ${a.h}`, consultorio: S.cons.nombre}, firma: ''}), base), titulo: 'Autorización (para leer)', nombre: 'Autorizacion.pdf', quien: S.nuevo.nombre});
 }

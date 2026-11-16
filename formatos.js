@@ -27,10 +27,12 @@ function logoHtml(d) {
 function cabDoc(d, eq, titulo, tags, datos) {
   const c = d.cons;
   return `<div class="d-cab"><div class="d-logo con">${logoHtml(d)}</div><div class="d-cons"><b>${esc(c.nombre)}</b>${esc(c.prestador)}${c.nit ? ' · NIT ' + esc(c.nit) : ''}<br>${c.tel ? 'Tel. ' + esc(c.tel) : ''}${c.tel && c.correo ? ' · ' : ''}${esc(c.correo)}</div></div>
-  <div class="d-tit"><div style="position:relative;z-index:1"><div class="d-eq">SKIN TRANSDERM PLUS+ · ${eq}</div><h1>${titulo}</h1></div><div class="d-tags">${tags.map(t => `<span class="d-tag">${t}</span>`).join('')}</div></div>
+  <div class="d-tit"><div style="position:relative;z-index:1"><div class="d-eq">${modeloDoc(d).nombre} · ${eq}</div><h1>${titulo}</h1></div><div class="d-tags">${tags.map(t => `<span class="d-tag">${t}</span>`).join('')}</div></div>
   <div class="d-datos" style="grid-template-columns:repeat(${datos.length + 1},minmax(0,1fr))">${[...datos, ['Responsable', c.prestador || '—']].map(([e, v]) => `<div><span class="d-eti">${e}</span><b>${esc(v)}</b></div>`).join('')}</div>`;
 }
-const pieDoc = (d, n) => `<div class="d-pie"><span>SKIN TRANSDERM PLUS+ · documento generado por TK_APP · los datos permanecen en el equipo</span><span>${registro(d.u.id)} · ${n}</span></div>`;
+// El modelo del equipo conectado (MODELOS en equipo.js); sin dato, el de modeloDe (SKIN TRANSDERM PLUS+)
+const modeloDoc = d => d.modelo || modeloDe('');
+const pieDoc = (d, n) => `<div class="d-pie"><span>${modeloDoc(d).nombre} · documento generado por TK_APP · los datos permanecen en el equipo</span><span>${registro(d.u.id)} · ${n}</span></div>`;
 
 // ---- Firma: los trazos de firma.sig (de la pantalla o de la app), ajustados al recuadro de 300 × 80 ----------------------
 function firmaSvg(texto, w = 300, h = 80) {
@@ -62,7 +64,7 @@ function docCI(d) {
   ${h2(1, 'Definiciones')}<p>Para efectos del presente documento se entiende por:</p>
   ${num('1.1.', `<b>Responsable:</b> ${esc(c.prestador)}, identificado(a) con NIT ${esc(c.nit)}, titular del establecimiento ${esc(c.nombre)}, quien decide sobre el tratamiento de los datos personales del Titular.`)}
   ${num('1.2.', '<b>Fabricante:</b> RPI Estética S.A.S., fabricante del Equipo, comercializado bajo la marca TK.')}
-  ${num('1.3.', '<b>Equipo:</b> el dispositivo de estética facial SKIN TRANSDERM PLUS+, con registro sanitario INVIMA 2023DM-0026617.')}
+  ${num('1.3.', `<b>Equipo:</b> el dispositivo de estética facial ${modeloDoc(d).nombre}, con registro sanitario INVIMA 2023DM-0026617.`)}
   ${num('1.4.', '<b>Profesional:</b> la persona capacitada designada por el Responsable para operar el Equipo.')}
   ${h2(2, 'Objeto')}<p>Mediante el presente documento el Titular autoriza al Responsable para realizar el tratamiento de sus datos personales en los términos de la Ley 1581 de 2012 y sus decretos reglamentarios, y declara conocer y aceptar las condiciones de uso del Equipo descritas en el numeral 8.</p>
   ${h2(3, 'Responsable del tratamiento y posición del Fabricante')}<p>El Responsable del tratamiento de los datos personales del Titular es ${esc(c.prestador)}, quien podrá ser contactado a través del correo electrónico ${esc(c.correo)} o del teléfono ${esc(c.tel)}.</p><p>El Fabricante no recibe, no consulta, no almacena ni tiene acceso a los datos personales del Titular, y no ostenta la calidad de Responsable ni de Encargado del tratamiento en los términos de la Ley 1581 de 2012.</p>
@@ -71,7 +73,7 @@ function docCI(d) {
   ${h2(6, 'Almacenamiento, circulación y conservación')}<p>Los datos se almacenan únicamente en la memoria interna del Equipo, bajo la custodia del Responsable. Su consulta podrá realizarse desde la aplicación del Equipo mediante conexión Bluetooth, y el presente documento podrá remitirse en formato PDF a la dirección de correo electrónico que el Responsable determine. Los datos no serán transmitidos a servidores del Fabricante ni a terceros.</p><p>Los datos se conservarán hasta que el Titular solicite su supresión o hasta que el Responsable los elimine, salvo que exista un deber legal que obligue al Responsable a conservarlos.</p>
   ${h2(7, 'Derechos del Titular')}<p>De conformidad con el artículo 8 de la Ley 1581 de 2012, el Titular tiene derecho a: (a) conocer, actualizar y rectificar sus datos personales; (b) solicitar prueba de la autorización otorgada; (c) ser informado, previa solicitud, sobre el uso que se ha dado a sus datos; (d) presentar ante la Superintendencia de Industria y Comercio quejas por infracciones a lo dispuesto en la ley; (e) revocar la autorización o solicitar la supresión de los datos cuando proceda; y (f) acceder en forma gratuita a sus datos personales. Para el ejercicio de estos derechos el Titular podrá dirigirse al Responsable a través de los medios de contacto indicados en el numeral 3.</p>
   ${h2(8, 'Condiciones de uso del Equipo')}<p>El Titular declara que:</p>
-  ${num('8.1.', 'Conoce que el Equipo es un dispositivo de estética facial que cuenta con las tecnologías de ultrasonido, electroporación y corriente galvánica, y que será operado exclusivamente por personal capacitado del Responsable.')}
+  ${num('8.1.', `Conoce que el Equipo es un dispositivo de estética facial que cuenta con las tecnologías de ${modeloDoc(d).tecnologias}, y que será operado exclusivamente por personal capacitado del Responsable.`)}
   ${num('8.2.', 'Conoce que la valoración, la selección del protocolo, la configuración de los parámetros, los productos aplicados y la decisión de realizar cada sesión corresponden al Profesional. El Fabricante no interviene en la atención del Titular ni en dichas decisiones.')}
   ${num('8.3.', 'Recibió del Profesional información sobre el funcionamiento del Equipo y sobre las sensaciones y efectos que pueden presentarse durante y después de las sesiones, y tuvo la oportunidad de formular preguntas.')}
   ${num('8.4.', 'Se obliga a informar al Profesional, antes de cada sesión, cualquier condición de salud o modificación de esta, en especial: embarazo, uso de marcapasos u otro dispositivo electrónico implantado, presencia de implantes metálicos, y heridas o lesiones en la zona a tratar.')}
