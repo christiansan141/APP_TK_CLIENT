@@ -200,7 +200,7 @@ function docHistorial(d) {
   h2(1, 'Resumen') + `<table><tr><th>N.º</th><th>Fecha y hora</th><th>Protocolo o valoración</th><th>Duración</th><th>Estado</th></tr>
     ${filas.map(x => x.val ? `<tr><td style="color:#9A98BC">—</td><td>${esc(x.val.v.fecha)}</td><td colspan="3"><span class="d-nv"><i style="background:#fff;box-shadow:inset 0 0 0 2px #3466AE"></i>${tituloVal(x.val.v)}</span></td></tr>`
       : `<tr><td style="width:7%;font-weight:700">${x.ses.n}</td><td style="width:22%">${esc(x.ses.s.fecha)}</td><td>${nv(colorProtocolo(x.ses.s), esc(x.ses.s.protocolo))}</td><td style="width:20%">${mmss(x.ses.s.real_s)} de ${mmss(x.ses.s.programado_s)} min</td><td style="width:16%">${estadoPill(x.ses.s.estado)}</td></tr>`).join('') || '<tr><td colspan="5" class="d-nota">Sin sesiones ni valoraciones.</td></tr>'}</table>` +
-  (d.sesiones.length ? h2(2, 'Detalle de cada sesión') + [...d.sesiones].sort((a, b) => b.n - a.n).map(x => tarjSesion(x.s, x.n)).join('') : '') + pieDoc(d, '');
+  (d.sesiones.length ? h2(2, 'Detalle de cada sesión') + d.sesiones.toSorted((a, b) => b.n - a.n).map(x => tarjSesion(x.s, x.n)).join('') : '') + pieDoc(d, '');
 }
 
 // ---- Hojas carta: la vista previa y el PDF son las mismas hojas (816 × 1054 px) ---------------------------------------------

@@ -2,7 +2,7 @@
 // Datos: los pide al equipo cada vez (equipo.js); no guarda datos de usuarios. Solo recuerda el pase de confianza de cada equipo.
 'use strict';
 
-const VERSION_APP = '1.2 · 16/11/2026';   // súbala en cada publicación (el equipo la recibe en «hola»)
+const VERSION_APP = '1.3 · 20/11/2026';   // súbala en cada publicación (el equipo la recibe en «hola»)
 const URL_DOCUMENTOS = 'https://drive.google.com/drive/folders/1FRbFGo9VDIqJsnvl2BH4vQDcxtFaq83v';
 const S = {p: 'conectar', con: false, eq: null, buscando: false, hora: null, fw: '', clave: '', claveMal: false, quedan: 3, finEspera: 0,
   pend: false, nuevo: null, firmaPaso: 0, checks: [false, false], lienzoTotal: false, trazosTmp: [], trazos: [], aj: null, firmado: null, enviando: false,
@@ -353,7 +353,7 @@ async function cargarUsuarios() {
   if (S.p === 'usuarios') pintar();
 }
 async function abrirFicha(id) {
-  S.ficha = {id, cargando: true}; S.p = 'ficha'; pintar();
+  S.ficha = {id, cargando: true}; S.p = 'ficha'; conTransicion(pintar, 'adelante');
   try {
     const r = await S.eq.pedir({t: 'ficha', id}, 20000);
     if (r.error) { S.ficha = {id, error: r.error === 'ejecutando' ? 'El equipo está ejecutando un protocolo.' : 'No se pudo leer este usuario.'}; pintar(); return; }
@@ -435,7 +435,7 @@ async function hacerPdf(hojas, avance, sigue) {
       pdf.addImage(c.toDataURL('image/jpeg', .9), 'JPEG', 0, 0, 612, 612 * c.height / c.width);
     }
     return pdf.output('blob');
-  } finally { zona.innerHTML = ''; zona.style.cssText = ''; }
+  } finally { zona.replaceChildren(); zona.style.cssText = ''; }
 }
 // El PDF se prepara en cuanto se ve la vista previa (mostrarPdf → prepararPdf). Así, al tocar «Compartir» o «Guardar»,
 // el menú del celular se abre en ese mismo toque: el iPhone (Safari y Bluefy) solo lo deja abrir justo después de tocar
@@ -580,13 +580,13 @@ function guiaIphone() {
 function pantallaConectar() {
   const ble = EquipoBle.disponible();
   if (!ble && esIphone()) return guiaIphone();
-  return `<div style="padding:4px 0 10px;text-align:center">
+  return `<div class="centrado"><div style="padding:4px 0 10px;text-align:center">
     <div class="ble">${S.buscando ? '<i></i><i></i><i></i>' : ''}<b>${ic('bt', 30, 2.2)}</b></div>
     <h3 style="margin:8px 0 4px;font-size:18px">${S.buscando ? 'Conectando…' : 'Conecte el equipo'}</h3>
     <p class="sub" style="margin:0 28px 14px">${S.buscando ? 'Elija su equipo en la lista del celular.' : ble ? 'Prenda el equipo SKIN TRANSDERM y active el Bluetooth del celular.' : 'Este navegador no tiene Bluetooth. En Android use Chrome.'}</p>
     ${S.buscando || !ble ? '' : `<div style="padding:4px 18px 0"><button class="btn ver btn-buscar" data-act="buscar">${ic('bt', 22)}Buscar equipo</button></div>`}
     </div>
-    <div class="sub" style="text-align:center;margin:10px 24px 0">El equipo atiende un solo celular a la vez. Si en la lista sale «ocupado», otro celular lo tiene conectado.</div>`;
+    <div class="sub" style="text-align:center;margin:10px 24px 0">El equipo atiende un solo celular a la vez. Si en la lista sale «ocupado», otro celular lo tiene conectado.</div></div>`;
 }
 function pantallaClave() {
   const espera = Math.max(0, Math.ceil((S.finEspera - Date.now()) / 1000)), mmss = s => s >= 60 ? `${Math.floor(s / 60)}:${dos(s % 60)} min` : `${s} s`;
@@ -606,10 +606,10 @@ function pantallaClave() {
 function pantallaInicio() {
   return `${horaTarj()}
     <div class="baldosas">
-      ${S.pend ? `<div class="bal grande verde" data-go="firma"><div class="ic">${ic('pen', 22)}</div><div><b>Firmar la autorización</b><span>${esc(S.nuevo.nombre)} espera en el equipo</span></div></div>` : ''}
-      <div class="bal grande" data-go="usuarios"><div class="ic">${ic('users', 22)}</div><div><b>Usuarios y PDF</b><span>Buscar, ver la ficha y sacar documentos</span></div></div>
-      <div class="bal" data-go="ajustes"><div class="ic">${ic('gear', 20)}</div><div><b>Consultorio</b><span>Logo y datos de los PDF</span></div></div>
-      <div class="bal" data-act="documentos"><div class="ic">${ic('doc', 20)}</div><div><b>Documentos</b><span>Ficha técnica, registro y manual</span></div></div>
+      ${S.pend ? `<button type="button" class="bal grande verde" data-go="firma"><div class="ic">${ic('pen', 22)}</div><div><b>Firmar la autorización</b><span>${esc(S.nuevo.nombre)} espera en el equipo</span></div></button>` : ''}
+      <button type="button" class="bal grande" data-go="usuarios"><div class="ic">${ic('users', 22)}</div><div><b>Usuarios y PDF</b><span>Buscar, ver la ficha y sacar documentos</span></div></button>
+      <button type="button" class="bal" data-go="ajustes"><div class="ic">${ic('gear', 20)}</div><div><b>Consultorio</b><span>Logo y datos de los PDF</span></div></button>
+      <button type="button" class="bal" data-act="documentos"><div class="ic">${ic('doc', 20)}</div><div><b>Documentos</b><span>Ficha técnica, registro y manual</span></div></button>
     </div>`;
 }
 function pantallaFirma() {
@@ -636,9 +636,9 @@ const textoCi = () => `<b>Autorización para el tratamiento de datos personales 
 function pantallaUsuarios() {
   const U = S.usuarios;
   const lista = !U ? '<div class="sub" style="padding:10px 0">Trayendo los usuarios del equipo…</div>' : U.error ? `<div class="sub" style="padding:10px 0">${U.error}</div>`
-    : U.lista.map(u => `<div class="fila-u" data-ficha="${+u.id}"><div class="av">${esc(iniciales(u.n))}</div><div><b>${esc(u.n)}</b><span class="sub">C.C. ${esc(conPuntos(u.cc))} · ${+u.val} val. · ${+u.ses} ses.${u.ult && u.ult !== '-' ? ' · ' + esc(u.ult) : ''}</span></div><span class="chev">${ic('chev', 18)}</span></div>`).join('')
+    : U.lista.map(u => `<button type="button" class="fila-u" data-ficha="${+u.id}"><div class="av">${esc(iniciales(u.n))}</div><div><b>${esc(u.n)}</b><span class="sub">C.C. ${esc(conPuntos(u.cc))} · ${+u.val} val. · ${+u.ses} ses.${u.ult && u.ult !== '-' ? ' · ' + esc(u.ult) : ''}</span></div><span class="chev">${ic('chev', 18)}</span></button>`).join('')
       || '<div class="sub" style="padding:10px 0">Ningún usuario con ese nombre o cédula.</div>';
-  return `<div class="busca">${ic('search', 18)}<input data-buscar placeholder="Nombre o cédula (3 letras basta)" value="${S.buscar.replace(/"/g, '&quot;')}"></div>
+  return `<div class="busca">${ic('search', 18)}<input data-buscar type="search" enterkeyhint="search" autocomplete="off" aria-label="Buscar usuario por nombre o cédula" placeholder="Nombre o cédula (3 letras basta)" value="${S.buscar.replace(/"/g, '&quot;')}"></div>
     <div class="tarj">${U && !U.error ? `<span class="eti2">${S.buscar.trim().length >= 3 ? `${U.lista.length} resultado${U.lista.length === 1 ? '' : 's'}` : `Los más recientes · ${U.total} registrados`}</span>` : ''}${lista}</div>
     <div class="sub" style="margin:0 20px 16px;text-align:center">Los datos se leen de la micro SD del equipo; la app no guarda copia.</div>`;
 }
@@ -666,7 +666,8 @@ function pantallaPdf() {
       : listo && esIphone() ? '<div class="sub" style="margin:-8px 16px 14px;text-align:center">En el menú, <b>Guardar en Archivos</b> deja el PDF en el iPhone.</div>' : ''}`;
 }
 function pantallaAjustes() {
-  const c = (e, k, tipo = 'text') => `<div class="campo"><span>${e}</span><input data-cons="${k}" type="${tipo}" value="${esc(S.cons[k])}" maxlength="80"></div>`;
+  const AUTO = {nombre: 'organization', prestador: 'name', nit: 'off', tel: 'tel', correo: 'email'};
+  const c = (e, k, tipo = 'text') => `<div class="campo"><label for="cons-${k}">${e}</label><input id="cons-${k}" data-cons="${k}" type="${tipo}" autocomplete="${AUTO[k]}" value="${esc(S.cons[k])}" maxlength="80"></div>`;
   const pase = leer(paseKey());
   return `<div class="tarj"><span class="eti2">Consultorio · sale en los PDF</span><div style="height:8px"></div>
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">${logoValido(S.logo) ? `<img src="${logoValido(S.logo)}" style="width:100px;height:40px;border-radius:6px;box-shadow:0 0 0 1px var(--borde);object-fit:cover" alt="Logo">` : '<div style="width:100px;height:40px;border-radius:6px;box-shadow:inset 0 0 0 1.5px var(--borde);display:grid;place-items:center;font-size:10px;color:var(--tinta3)">Sin logo</div>'}<button class="btn sec" style="height:40px;font-size:12.5px" data-act="otrafoto">Cambiar logo</button></div>
@@ -807,6 +808,8 @@ function temaPorHora() {
   document.documentElement.classList.toggle('noche', noche);
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.content = noche ? '#100F26' : '#22204F';
+  const esquema = document.querySelector('meta[name="color-scheme"]');      // barras, campos y menús del navegador
+  if (esquema) esquema.content = noche ? 'dark' : 'light';
 }
 // Zonas que, al repintar la misma pantalla, quedan donde el usuario las dejó
 const DESPLAZABLES = ['.cuerpo', '.mini-pdf', '.atajo-panel'];
@@ -828,14 +831,22 @@ function pintar() {
 }
 
 // ---- toques -----------------------------------------------------------------------------------------------------------------
+// Cambia de pantalla con una transición corta (View Transitions): avanzar entra por la derecha, volver por la izquierda.
+// Sin soporte (navegadores viejos) o con «reducir movimiento», la pantalla cambia de una vez, como antes.
+function conTransicion(cambio, dir) {
+  if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) { cambio(); return; }
+  try { document.startViewTransition({update: cambio, types: [dir]}); }
+  catch (_) { document.startViewTransition(cambio); }      // Chrome 111–124: sin «types», solo el fundido
+}
 function ir(p) {
   if (!S.con && !['conectar', 'clave'].includes(p)) p = 'conectar';
   if (p === 'conectar' && S.con) return;
   if (p === 'firma' && S.firmado && !S.pend) S.firmado = null;
+  const dir = p === 'inicio' ? 'atras' : 'adelante', cambia = p !== S.p;
   S.prev = S.p; S.p = p;
   if (p === 'usuarios') { S.usuarios = null; cargarUsuarios(); }
   if (p === 'ajustes' && !S.consLeido) leerConsultorio().then(() => { if (S.p === 'ajustes') pintar(); });
-  pintar();
+  if (cambia) conTransicion(pintar, dir); else pintar();
 }
 function accion(a) {
   if (a === 'buscar') buscarEquipo();
@@ -843,7 +854,7 @@ function accion(a) {
     if (S.p === 'clave') { perderConexion(); return; }
     S.p = S.p === 'pdf' ? (S.prev === 'firma' ? 'firma' : 'ficha') : S.p === 'ficha' ? 'usuarios' : S.p === 'logo' ? 'ajustes' : 'inicio';
     if (S.p === 'ficha' && !S.ficha) S.p = 'usuarios';
-    pintar();
+    conTransicion(pintar, 'atras');
   }
   else if (a === 'bluefy') abrirEnBluefy();
   else if (a === 'atajo') { S.atajo = true; prepararIcono(); pintar(); }

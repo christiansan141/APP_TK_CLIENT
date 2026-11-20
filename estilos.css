@@ -1,7 +1,7 @@
 /* TK_APP · estilos. Salen del simulador validado (app/simulador_TK_APP.html, 05/11/2026). */
 
 :root{
-  --azul:#3466AE; --indigo:#2E2B7A; --noche:#29265B; --tinta:#29265B; --tinta2:#6B6893; --tinta3:#9A98BC;
+  --azul:#3466AE; --indigo:#2E2B7A; --noche:#29265B; --tinta:#29265B; --tinta2:#6B6893; --tinta3:#6A6793;
   --borde:#E3E4F1; --suave:#F4F5FB; --verde:#2E8F66; --rojo:#D64545; --ambar:#E0922F; --teo:#1D71B8;
   --fondo:#EEF0F8;
 }
@@ -143,7 +143,7 @@ textarea:focus{outline:none;border-color:var(--azul);background:#fff}
 .tostada .anotar{color:#fff;text-decoration:underline;font-size:12.5px}   /* botones dentro del aviso: que se vean sobre el fondo oscuro */
 @keyframes sube{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
 .campo{margin-bottom:10px}
-.campo span{display:block;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--tinta3);margin-bottom:3px}
+.campo span,.campo label{display:block;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--tinta3);margin-bottom:3px}
 .campo div{height:40px;border-radius:12px;background:var(--suave);display:flex;align-items:center;padding:0 12px;font-size:13px;font-weight:600}
 
 .legal-corto{font-size:12px;line-height:1.55;color:var(--tinta2)}
@@ -294,7 +294,7 @@ textarea:focus{outline:none;border-color:var(--azul);background:#fff}
 :root{--carta:#fff}
 html.noche{
   --fondo:#100F26; --suave:#15142E; --carta:#1F1D45; --carta2:#2A2862; --borde:#34315F;
-  --tinta:#ECEBFA; --tinta2:#A9A7D2; --tinta3:#7774A6; --verde:#3FB27F; --rojo:#EF6262; --ambar:#F0A84A;
+  --tinta:#ECEBFA; --tinta2:#A9A7D2; --tinta3:#9592C4; --verde:#3FB27F; --rojo:#EF6262; --ambar:#F0A84A;
   color-scheme:dark;
 }
 html.noche body{background:var(--fondo)}
@@ -356,4 +356,54 @@ html.noche .doc, html.noche .mini-pdf, html.noche .miniatura, html.noche .papel,
 html, body, button, a, input, [data-act], [data-go] { touch-action: manipulation; }
 @supports (-webkit-touch-callout: none) {
   input, textarea, select { font-size: 16px !important; }
+}
+
+/* =================================================== PULIDO (20/11/2026, guías Modern Web Guidance) */
+:root{color-scheme:light}
+body{font-size-adjust:from-font}            /* si Montserrat tarda, la letra de reserva ocupa lo mismo */
+h2,h3,h4{text-wrap:balance}
+.sub,.legal-corto,p{text-wrap:pretty}
+/* Verde de los botones un poco más hondo: el texto blanco llega a 4,5:1 */
+.btn.ver{background:#287D59}
+/* Baldosas y filas: ahora son botones; se ven igual que antes */
+.vF .bal,.fila-u{font:inherit;color:inherit;text-align:left;border:0;-webkit-tap-highlight-color:transparent}
+.vF .bal{width:100%}
+.vF .bal.grande{color:#fff}
+.fila-u{width:100%;background:none;border-bottom:1px solid var(--suave)}
+.fila-u:last-child{border-bottom:0}
+.busca input::-webkit-search-cancel-button{display:none}
+/* Conectar: centrado en la pantalla */
+.centrado{min-height:100%;display:flex;flex-direction:column;justify-content:center;padding-bottom:24px}
+/* Respuesta al toque: todo lo que se puede tocar se hunde un poco al presionarlo */
+.btn,.vF .bal,.fila-u,.pdfb,.teclado button,.vF .volver,.zona-firmar,.check{transition:scale .15s ease-out,box-shadow .2s ease-out,background-color .2s}
+.btn:not(:disabled):active,.vF .bal:active,.pdfb:active,.teclado button:not(:disabled):active,.zona-firmar:active{scale:.97}
+.fila-u:active{scale:.99}
+@media (hover:hover){
+  .vF .bal:hover{box-shadow:0 10px 24px rgba(46,43,122,.13)}
+  .fila-u:hover b{color:var(--azul)}
+  .pdfb:hover{background:#E1EAF8}
+}
+/* Foco visible para quien usa teclado (no aparece al tocar con el dedo) */
+:where(button,a,input,[tabindex]):focus-visible{outline:2px solid var(--azul);outline-offset:3px;border-radius:12px}
+html.noche :where(button,a,input,[tabindex]):focus-visible{outline-color:#8FB4F0}
+/* Objetivos de toque cómodos */
+.pdfb{min-block-size:36px;padding:8px 12px}
+.vF .volver{min-block-size:36px}
+.check{min-block-size:44px}
+/* Cambio de pantalla: el contenido se desliza; la barra de arriba queda quieta */
+.app .cuerpo{view-transition-name:pantalla}
+.vF .top{view-transition-name:titulo}
+::view-transition-group(pantalla),::view-transition-group(titulo){animation-duration:.28s;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
+::view-transition-old(pantalla),::view-transition-new(pantalla){animation-duration:.28s;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
+html:active-view-transition-type(adelante)::view-transition-old(pantalla){animation-name:tk-sale-izq}
+html:active-view-transition-type(adelante)::view-transition-new(pantalla){animation-name:tk-entra-der}
+html:active-view-transition-type(atras)::view-transition-old(pantalla){animation-name:tk-sale-der}
+html:active-view-transition-type(atras)::view-transition-new(pantalla){animation-name:tk-entra-izq}
+@keyframes tk-sale-izq{to{transform:translateX(-18%);opacity:0}}
+@keyframes tk-entra-der{from{transform:translateX(18%);opacity:0}}
+@keyframes tk-sale-der{to{transform:translateX(18%);opacity:0}}
+@keyframes tk-entra-izq{from{transform:translateX(-18%);opacity:0}}
+@media (prefers-reduced-motion:reduce){
+  ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}
+  .btn,.vF .bal,.fila-u,.pdfb,.teclado button{transition:none}
 }
